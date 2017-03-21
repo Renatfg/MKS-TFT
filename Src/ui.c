@@ -68,6 +68,9 @@ uint8_t selectedFs = FS_SD;
 void uiInitialize (xUIEvent_t *pxEvent);
 void uiMainMenu   (xUIEvent_t *pxEvent);
 void uiSetupMenu  (xUIEvent_t *pxEvent);
+void uiMoveMenu (xUIEvent_t *pxEvent);
+void uiTemperatureMenu (xUIEvent_t *pxEvent);
+void uiTempSliderMenu (xUIEvent_t *pxEvent);
 
 typedef void (*volatile eventProcessor_t) (xUIEvent_t *);
 eventProcessor_t processEvent = uiInitialize;
@@ -98,6 +101,7 @@ typedef struct {
     uint16_t                x1, y1, x2, y2;
     uint16_t                color;
     const char              *label;
+    void                    (*labelFn) (uint16_t x, uint16_t y);
 	const eventProcessor_t	pEventProcessor;
 } xButton_t;
 
@@ -106,10 +110,16 @@ __STATIC_INLINE void uiDrawMenu(const xButton_t *pMenu, size_t menuSize) {
 	for (int s=0; s<menuSize; pMenu++, s++) {
         Lcd_Fill_Rect(pMenu->x1, pMenu->y1, pMenu->x2, pMenu->y2, pMenu->color);
 
-        uint16_t    x = (pMenu->x2 - pMenu->x1)/2 + pMenu->x1 - (strlen(pMenu->label) << 2),
-                    y = (pMenu->y2 - pMenu->y1)/2 + pMenu->y1 - 8;
+        if (pMenu->label) {
+            uint16_t    x = (pMenu->x2 - pMenu->x1)/2 + pMenu->x1 - (strlen(pMenu->label) << 2),
+                        y = (pMenu->y2 - pMenu->y1)/2 + pMenu->y1 - 8;
 
-        Lcd_Put_Text(x, y, 16, pMenu->label, 0xffffu);
+            Lcd_Put_Text(x, y, 16, pMenu->label, 0xffffu);
+
+        } else if (pMenu->labelFn) {
+
+            (*pMenu->labelFn) (pMenu->x2 - pMenu->x1, pMenu->y2 - pMenu->y1);
+        }
 	}
 }
 
@@ -266,28 +276,84 @@ void uiInitialize (xUIEvent_t *pxEvent) {
 void uiMainMenu (xUIEvent_t *pxEvent) {
 
     xButton_t menu[] = {
-        { 0, 0, 320, 110, Lcd_Get_RGB565(0, 0, 0), "МАГНУМ", NULL },
-        { 0, 110, 320, 150, Lcd_Get_RGB565(0, 0, 0), "Иконки и статусы температуры", NULL },
-        { 20, 150, 150, 210, Lcd_Get_RGB565(10, 20, 31), "Печать", NULL },
-        { 170, 150, 300, 210, Lcd_Get_RGB565(10, 20, 31), "Настройки", uiSetupMenu },
+        { 0, 0, 320, 110, LCD_BLACK, "МАГНУМ", NULL, NULL },
+        { 0, 110, 320, 150, LCD_BLACK, "Иконки и статусы температуры", NULL, NULL },
+        { 20, 150, 150, 210, Lcd_Get_RGB565(10, 20, 31), "Печать", NULL, NULL },
+        { 170, 150, 300, 210, Lcd_Get_RGB565(10, 20, 31), "Настройки", NULL, uiSetupMenu },
     };
 
 	uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
 
+static char currentIPLabel[30] = "Текущий IP: 192.168.0.253";
+static xButton_t setupMenu[] = {
+    { 5,  20,  80, 80, Lcd_Get_RGB565(31, 20, 10), "T Off", NULL, NULL },
+    { 85,  20, 160, 80, Lcd_Get_RGB565(31, 20, 10), "ДВ Off", NULL, NULL },
+    { 165, 20, 240, 80, Lcd_Get_RGB565(31, 20, 10), "Ст. вниз", NULL, NULL },
+    { 245, 20, 315, 80, Lcd_Get_RGB565(31, 20, 10), "Парк XY", NULL, NULL },
+    { 20, 100, 300, 130, LCD_BLACK, currentIPLabel, NULL, NULL },
+    { 5,  150,  80, 210, Lcd_Get_RGB565(31, 20, 10), "Назад", NULL, uiMainMenu },
+    { 85,  150, 160, 210, Lcd_Get_RGB565(31, 20, 10), "Пруток", NULL, NULL },
+    { 165, 150, 240, 210, Lcd_Get_RGB565(31, 20, 10), "T", NULL, uiTemperatureMenu },
+    { 245, 150, 315, 210, Lcd_Get_RGB565(31, 20, 10), "Движ", NULL, uiMoveMenu }
+};
+
 void uiSetupMenu (xUIEvent_t *pxEvent) {
 
-    xButton_t menu[] = {
-        { 5,  20,  80, 80, Lcd_Get_RGB565(31, 20, 10), "T Off", NULL },
-        { 85,  20, 160, 80, Lcd_Get_RGB565(31, 20, 10), "ДВ Off", NULL },
-        { 165, 20, 240, 80, Lcd_Get_RGB565(31, 20, 10), "Ст. вниз", NULL },
-        { 245, 20, 315, 80, Lcd_Get_RGB565(31, 20, 10), "Парк XY", NULL },
-        { 20, 100, 300, 130, Lcd_Get_RGB565(0, 0, 0), "Текущий IP: 192.168.0.253", NULL },
-        { 20, 150, 130, 210, Lcd_Get_RGB565(10, 20, 31), "Пруток", NULL },
-        { 150, 150, 300, 210, Lcd_Get_RGB565(10, 20, 31), "Движение по осям", NULL },
-    };
+	uiMenuHandleEventDefault(setupMenu, sizeof(setupMenu)/sizeof(xButton_t), pxEvent);
+}
 
-	uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
+static char coordinatesLabel[] = "Координаты X:1200 Y:1200 Z:1200";
+static char distanceLabel[] = "100мм";
+static xButton_t moveMenu[] = {
+    { 5,  20,  80, 80, Lcd_Get_RGB565(31, 20, 10), "X", NULL, NULL },
+    { 85,  20, 160, 80, Lcd_Get_RGB565(31, 20, 10), "Y", NULL, NULL },
+    { 165, 20, 240, 80, Lcd_Get_RGB565(31, 20, 10), "Z", NULL, NULL },
+    { 245, 20, 315, 80, Lcd_Get_RGB565(31, 20, 10), distanceLabel, NULL, NULL },
+    { 20, 100, 300, 130, LCD_BLACK, coordinatesLabel, NULL, NULL },
+    { 5,  150,  80, 210, Lcd_Get_RGB565(31, 20, 10), "Назад", NULL, uiSetupMenu },
+    { 85,  150, 210, 210, Lcd_Get_RGB565(31, 20, 10), "Ближе", NULL, NULL },
+    { 215, 150, 315, 210, Lcd_Get_RGB565(31, 20, 10), "Дальше", NULL, NULL }
+};
+
+void uiMoveMenu (xUIEvent_t *pxEvent) {
+
+    uiMenuHandleEventDefault(moveMenu, sizeof(moveMenu)/sizeof(xButton_t), pxEvent);
+}
+
+static char heater1Temp[] = "27 Экстр1";
+static char heater2Temp[] = "28 Экстр2";
+static char bedTemp[] = "25 Стол";
+static char fanSpeed[] = "146 %";
+static xButton_t temperatureMenu[] = {
+    { 5,  20,  80, 80, Lcd_Get_RGB565(31, 20, 10), heater1Temp, NULL, uiTempSliderMenu },
+    { 85,  20, 160, 80, Lcd_Get_RGB565(31, 20, 10), heater2Temp, NULL, NULL },
+    { 165, 20, 240, 80, Lcd_Get_RGB565(31, 20, 10), bedTemp, NULL, NULL },
+    { 245, 20, 315, 80, Lcd_Get_RGB565(31, 20, 10), fanSpeed, NULL, NULL },
+    { 20, 100, 300, 130, LCD_BLACK, "Пока просто дырка", NULL, NULL },
+    { 5,  150,  80, 210, Lcd_Get_RGB565(31, 20, 10), "Назад", NULL, uiSetupMenu },
+    { 85,  150, 210, 210, Lcd_Get_RGB565(31, 20, 10), "Преднагр PLA", NULL, NULL },
+    { 215, 150, 315, 210, Lcd_Get_RGB565(31, 20, 10), "Преднагр ABS", NULL, NULL }
+};
+
+void uiTemperatureMenu (xUIEvent_t *pxEvent) {
+
+    uiMenuHandleEventDefault(temperatureMenu, sizeof(temperatureMenu)/sizeof(xButton_t), pxEvent);
+}
+
+static char setTempHeader[] = "Температура экструдера 1";
+static char setTempLabel[] = "Установить температуру: 999 С";
+static xButton_t tempSliderMenu[] = {
+    { 20, 30, 300, 69, LCD_BLACK, setTempHeader, NULL, NULL },
+    { 20, 70, 300, 99, LCD_BLACK, setTempLabel, NULL, NULL },
+    { 20, 100, 300, 130, LCD_BLACK, "Здесь будет слайдер", NULL, NULL },
+    { 5,  150,  80, 210, Lcd_Get_RGB565(31, 20, 10), "Назад", NULL, uiTemperatureMenu },
+    { 215, 150, 315, 210, Lcd_Get_RGB565(31, 20, 10), "Установить", NULL, uiTemperatureMenu }
+};
+
+void uiTempSliderMenu (xUIEvent_t *pxEvent) {
+
+    uiMenuHandleEventDefault(tempSliderMenu, sizeof(tempSliderMenu)/sizeof(xButton_t), pxEvent);
 }
 
 /*

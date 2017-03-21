@@ -74,7 +74,13 @@ void Lcd_Fill_Rect(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
 		uint16_t color);
 void Lcd_Copy_Region(uint16_t x1, uint16_t y1, uint16_t width, uint16_t height,
 		uint16_t x2, uint16_t y2);
-uint16_t Lcd_Get_RGB565(uint8_t red, uint8_t green, uint8_t blue);
+
+#define Lcd_Get_RGB565(red, green, blue) ((blue & 0x1f) + (((uint16_t) green & 0x3f) << 5) + (((uint16_t) red & 0x1f) << 11))
+
+#define LCD_BLACK   0
+#define LCD_RED     Lcd_Get_RGB565(31, 0, 0)
+#define LCD_GREEN   Lcd_Get_RGB565(0, 63, 0)
+#define LCD_BLUE    Lcd_Get_RGB565(0, 0, 31)
 
 extern unsigned char cp866_8x8_psf[256][8];
 extern unsigned char cp866_8x14_psf[256][14];

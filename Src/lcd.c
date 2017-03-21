@@ -107,15 +107,6 @@ void Lcd_Fill_Screen(uint16_t color) {
 	}
 }
 
-uint16_t Lcd_Get_RGB565(uint8_t red, uint8_t green, uint8_t blue) {
-
-	uint16_t c = blue & 0x1f;
-	c += ((uint16_t) green & 0x3f) << 5;
-	c += ((uint16_t) red & 0x1f) << 11;
-
-	return c;
-}
-
 void Lcd_Init(uint8_t orientation) {
 
 	uint16_t R01h, R03h, R60h;
