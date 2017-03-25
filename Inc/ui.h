@@ -51,6 +51,7 @@ typedef struct
 {
     enum {
     	INIT_EVENT = 0,
+    	TOGGLE_EVENT,
     	TOUCH_DOWN_EVENT,
 		TOUCH_UP_EVENT,
 		SDCARD_INSERT,
@@ -73,18 +74,19 @@ typedef void (*volatile eventProcessor_t) (xUIEvent_t *);
 extern eventProcessor_t processEvent;
 
 typedef enum {
-	MOVE_01 = 0,
-	MOVE_1,
-	MOVE_5,
-	MOVE_10
+	MOVE_01     = 0,
+	MOVE_1      = 1,
+	MOVE_5      = 5,
+	MOVE_10     = 10,
+	MOVE_100    = 100
 } xMoveStep_t;
-extern uint8_t moveStep;
+extern uint16_t moveStep;
 
-typedef enum {
-	MANUAL_OFF = 0,
-	AUTO_OFF
-} xOffMode_t;
-extern uint8_t offMode;
+// typedef enum {
+// 	MANUAL_OFF = 0,
+//	AUTO_OFF
+// } xOffMode_t;
+// extern uint8_t offMode;
 
 typedef enum {
 	CONNECT_9600 = 0,
@@ -101,12 +103,12 @@ typedef enum {
 } xPreheatDev_t;
 extern uint8_t preheatDev;
 
-typedef enum {
-    STEP_1_DEGREE = 0,
-    STEP_5_DEGREE,
-    STEP_10_DEGREE
-} xStepDegree_t;
-extern uint8_t preheatSelDegree;
+// typedef enum {
+//    STEP_1_DEGREE = 0,
+//    STEP_5_DEGREE,
+//    STEP_10_DEGREE
+// } xStepDegree_t;
+// extern uint8_t preheatSelDegree;
 
 typedef enum {
 	EXTRUDER_1 = 0,
@@ -133,6 +135,9 @@ typedef enum {
     FS_USB
 } xFSSelection_t;
 extern uint8_t selectedFs;
+
+extern uint16_t e1PreheatTemp;
+extern uint16_t e2PreheatTemp;
 
 #endif /* __UI_H */
 /************************ (C) COPYRIGHT Roman Stepanov *****END OF FILE****/

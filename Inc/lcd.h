@@ -80,6 +80,9 @@ void Lcd_Copy_Region(uint16_t x1, uint16_t y1, uint16_t width, uint16_t height,
 #define LCD_BLACK   0
 #define LCD_RED     Lcd_Get_RGB565(31, 0, 0)
 #define LCD_GREEN   Lcd_Get_RGB565(0, 63, 0)
+#define LCD_CYAN    Lcd_Get_RGB565(0, 63, 31)
+#define LCD_DANUBE  Lcd_Get_RGB565(6, 26, 27)
+#define LCD_ORANGE  Lcd_Get_RGB565(31, 34, 0)
 #define LCD_BLUE    Lcd_Get_RGB565(0, 0, 31)
 
 extern unsigned char cp866_8x8_psf[256][8];
