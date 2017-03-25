@@ -63,8 +63,8 @@ uint8_t selectedFs = FS_SD;
 
 #define MAX_EXTRUDER_TEMP   275
 
-extern uint16_t e1PreheatTemp = 220;
-extern uint16_t e2PreheatTemp = 220;
+uint16_t e1PreheatTemp = 220;
+uint16_t e2PreheatTemp = 220;
 
 /*
  * user callback declaration
@@ -202,10 +202,13 @@ __STATIC_INLINE void uiMenuHandleEventDefault(const xButton_t *pMenu, size_t men
                     }
                 }
 
-				if (p) uiNextState(p);
+				if (p) {
+
+                    uiShortBeep();
+                    uiNextState(p);
+                }
 			}
 
-			uiShortBeep();
 			break;
 
 		default:
@@ -333,7 +336,6 @@ static char coordinatesLabel[] = "Координаты X:1200 Y:1200 Z:1200";
 void printDistanceLabel(uint16_t x, uint16_t y) {
 
     char distanceLabel[8];
-    // snprintf(distanceLabel, sizeof(distanceLabel), "%3.1f мм", ((float) moveStep)/10);
 
     if (moveStep == MOVE_01)
         snprintf(distanceLabel, sizeof(distanceLabel), "0.1 мм");
@@ -496,8 +498,12 @@ static void uiDrawSlider(uint16_t y, uint32_t pos, uint32_t scale, uint16_t colo
 
 	uint16_t x0 = 10 + 280 * pos / scale, x1 = x0 + 20;
 
-   	Lcd_Fill_Rect(10 - 2, y - 17, 310 + 2, y + 17, color1);
-	Lcd_Fill_Rect(x1, y - 16, 310 + 1, y + 16, 0);
+    Lcd_Line(10 - 2, y - 17, 310 + 2, y - 17, color1);
+    Lcd_Line(310 + 2, y - 17, 310 + 2, y + 17, color1);
+    Lcd_Line(10 - 2, y - 17, 10 - 2, y + 17, color1);
+    Lcd_Line(10 - 2, y + 17, 310 + 2, y + 17, color1);
+
+    Lcd_Fill_Rect(10, y - 15, x0, y + 15, color1);
    	Lcd_Fill_Rect(x0, y - 20, x1, y + 20, color2);
 }
 

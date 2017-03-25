@@ -102,8 +102,17 @@ void Lcd_Fill_Screen(uint16_t color) {
 
 	int j = 320 * 240;
 
+	HAL_GPIO_WritePin(LCD_nRD_GPIO_Port, LCD_nRD_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(LCD_nWR_GPIO_Port, LCD_nWR_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(LCD_RS_GPIO_Port, LCD_RS_Pin, GPIO_PIN_SET);
+
+	GPIOE->ODR = color;
+
 	while (j--) {
-		Lcd_Set_Data(color);
+//		Lcd_Set_Data(color);
+
+        HAL_GPIO_WritePin(LCD_nWR_GPIO_Port, LCD_nWR_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(LCD_nWR_GPIO_Port, LCD_nWR_Pin, GPIO_PIN_SET);
 	}
 }
 
@@ -360,8 +369,17 @@ void Lcd_Fill_Rect(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t 
 		Lcd_Go_XY (x1, y);
 		Lcd_Com (0x0022);
 
+        HAL_GPIO_WritePin(LCD_nRD_GPIO_Port, LCD_nRD_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(LCD_nWR_GPIO_Port, LCD_nWR_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(LCD_RS_GPIO_Port, LCD_RS_Pin, GPIO_PIN_SET);
+
+        GPIOE->ODR = color;
+
 		for (int x = x1; x <= x2; x++) {
-			Lcd_Set_Data (color);
+// 			Lcd_Set_Data (color);
+
+            HAL_GPIO_WritePin(LCD_nWR_GPIO_Port, LCD_nWR_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(LCD_nWR_GPIO_Port, LCD_nWR_Pin, GPIO_PIN_SET);
 		}
 	}
 }

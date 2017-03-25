@@ -560,7 +560,7 @@ void StartTouchHandlerTask(void const * argument) {
 		if(xSemaphoreTake(xTouchSemaphore, portMAX_DELAY ) == pdTRUE ) {
 
 			osDelay(1);
-			if (HAL_GPIO_ReadPin(TOUCH_DI_GPIO_Port, TOUCH_DI_Pin) == GPIO_PIN_RESET) {
+			while (HAL_GPIO_ReadPin(TOUCH_DI_GPIO_Port, TOUCH_DI_Pin) == GPIO_PIN_RESET) {
 
 				/*
 				 * datasheet: https://ldm-systems.ru/f/doc/catalog/HY-TFT-2,8/XPT2046.pdf
@@ -569,66 +569,42 @@ void StartTouchHandlerTask(void const * argument) {
 				 *	http://e2e.ti.com/support/other_analog/touch/f/750/t/202636
 				 * */
 
-				uint16_t x[3], y[3], i;
-
 				HAL_GPIO_WritePin(TOUCH_nCS_GPIO_Port, TOUCH_nCS_Pin, GPIO_PIN_RESET);
 
-				if (0) {
-					for (i = 0; i < 3; i++) {
-						pTxData[0] = /* i < 2 ? 0xd7 : */0xd4;
-						HAL_SPI_TransmitReceive(&hspi3, pTxData, pRxData, 3,
-								1000);
-						y[i] = (unsigned int) (pRxData[1] << 8) + pRxData[2];
-					}
+                pTxData[0] = /* i < 2 ? 0xd7 : */0xd4;
+                HAL_SPI_TransmitReceive(&hspi3, pTxData, pRxData, 3,
+                        1000);
+                xTouchY = (unsigned int) (pRxData[1] << 8) + pRxData[2];
 
-					for (i = 0; i < 3; i++) {
-						pTxData[0] = /* i < 2 ? 0x97 : */0x94;
-						HAL_SPI_TransmitReceive(&hspi3, pTxData, pRxData, 3,
-								1000);
-						x[i] = (unsigned int) (pRxData[1] << 8) + pRxData[2];
-					}
-				} else {
-					for (i = 0; i < 3; i++) {
-						pTxData[0] = /* i < 2 ? 0xd7 : */0xd4;
-						HAL_SPI_TransmitReceive(&hspi3, pTxData, pRxData, 3,
-								1000);
-						y[i] = (unsigned int) (pRxData[1] << 8) + pRxData[2];
-
-						pTxData[0] = /* i < 2 ? 0x97 : */0x94;
-						HAL_SPI_TransmitReceive(&hspi3, pTxData, pRxData, 3,
-								1000);
-						x[i] = (unsigned int) (pRxData[1] << 8) + pRxData[2];
-					}
-				}
+                pTxData[0] = /* i < 2 ? 0x97 : */0x94;
+                HAL_SPI_TransmitReceive(&hspi3, pTxData, pRxData, 3,
+                        1000);
+                xTouchX = (unsigned int) (pRxData[1] << 8) + pRxData[2];
 
 				HAL_GPIO_WritePin(TOUCH_nCS_GPIO_Port, TOUCH_nCS_Pin, GPIO_PIN_SET);
 
 				xUIEvent_t event;
 				event.ucEventID = TOUCH_DOWN_EVENT;
 
-				xTouchX = Lcd_Touch_Get_Closest_Average(x);
-				xTouchY = Lcd_Touch_Get_Closest_Average(y);
 				event.ucData.touchXY = ((unsigned int) xTouchX << 16) + xTouchY;
 				xQueueSendToBack(xUIEventQueue, &event, 1000);
 
 				// TODO: continuous gesture recognition here!
-				osDelay(125); // limit touch event rate
-
-			} else {
-
-                if (xTouchX && xTouchY) {
-                    xUIEvent_t event;
-                    event.ucEventID = TOUCH_UP_EVENT;
-                    event.ucData.touchXY = ((unsigned int) xTouchX << 16) + xTouchY;
-                    xQueueSendToBack(xUIEventQueue, &event, 1000);
-
-                    xTouchX = 0;
-                    xTouchY = 0;
-
-                    // TODO: continuous gesture recognition here!
-                    osDelay(125);
-                }
+				osDelay(20); // limit touch event rate
 			}
+
+            if (xTouchX && xTouchY) {
+                xUIEvent_t event;
+                event.ucEventID = TOUCH_UP_EVENT;
+                event.ucData.touchXY = ((unsigned int) xTouchX << 16) + xTouchY;
+                xQueueSendToBack(xUIEventQueue, &event, 1000);
+
+                xTouchX = 0;
+                xTouchY = 0;
+
+                // TODO: continuous gesture recognition here!
+                osDelay(125);
+            }
 		}
 	}
 }
