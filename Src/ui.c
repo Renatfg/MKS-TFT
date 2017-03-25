@@ -453,14 +453,14 @@ void uiTempSliderMenu (xUIEvent_t *pxEvent) {
 void uiTempSliderSetMenu (xUIEvent_t *pxEvent) {
 
     if ( touchY >= 95 && touchY <= 145) {
-        e1PreheatTemp = 320 * MAX_EXTRUDER_TEMP / touchX;
+        e1PreheatTemp = MAX_EXTRUDER_TEMP  * touchX / 320;
 
 
         Lcd_Fill_Rect(8, 70, 312, 135, 0);
         uiDrawMenuItem(&tempSliderMenu[1]);
         uiDrawMenuItem(&tempSliderMenu[2]);
     }
-    uiToggleParentState(uiMoveMenu);
+    uiToggleParentState(uiTempSliderMenu);
 }
 
 /*
