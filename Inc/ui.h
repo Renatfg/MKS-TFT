@@ -138,6 +138,7 @@ extern uint8_t selectedFs;
 
 extern uint16_t e1PreheatTemp;
 extern uint16_t e2PreheatTemp;
+extern uint16_t filChangeTemp;
 
 #endif /* __UI_H */
 /************************ (C) COPYRIGHT Roman Stepanov *****END OF FILE****/
