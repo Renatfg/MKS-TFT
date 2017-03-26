@@ -557,7 +557,7 @@ void StartTouchHandlerTask(void const * argument) {
 
 	while (1) {
 
-		if(xSemaphoreTake(xTouchSemaphore, portMAX_DELAY ) == pdTRUE ) {
+		/* if(xSemaphoreTake(xTouchSemaphore, portMAX_DELAY ) == pdTRUE ) */ {
 
 			osDelay(1);
 			while (HAL_GPIO_ReadPin(TOUCH_DI_GPIO_Port, TOUCH_DI_Pin) == GPIO_PIN_RESET) {
@@ -571,15 +571,13 @@ void StartTouchHandlerTask(void const * argument) {
 
 				HAL_GPIO_WritePin(TOUCH_nCS_GPIO_Port, TOUCH_nCS_Pin, GPIO_PIN_RESET);
 
-                pTxData[0] = /* i < 2 ? 0xd7 : */0xd4;
-                HAL_SPI_TransmitReceive(&hspi3, pTxData, pRxData, 3,
-                        1000);
-                xTouchY = (unsigned int) (pRxData[1] << 8) + pRxData[2];
-
                 pTxData[0] = /* i < 2 ? 0x97 : */0x94;
-                HAL_SPI_TransmitReceive(&hspi3, pTxData, pRxData, 3,
-                        1000);
+                HAL_SPI_TransmitReceive(&hspi3, pTxData, pRxData, 3, 1000);
                 xTouchX = (unsigned int) (pRxData[1] << 8) + pRxData[2];
+
+                pTxData[0] = /* i < 2 ? 0xd7 : */0xd4;
+                HAL_SPI_TransmitReceive(&hspi3, pTxData, pRxData, 3, 1000);
+                xTouchY = (unsigned int) (pRxData[1] << 8) + pRxData[2];
 
 				HAL_GPIO_WritePin(TOUCH_nCS_GPIO_Port, TOUCH_nCS_Pin, GPIO_PIN_SET);
 
@@ -589,8 +587,7 @@ void StartTouchHandlerTask(void const * argument) {
 				event.ucData.touchXY = ((unsigned int) xTouchX << 16) + xTouchY;
 				xQueueSendToBack(xUIEventQueue, &event, 1000);
 
-				// TODO: continuous gesture recognition here!
-				osDelay(20); // limit touch event rate
+				osDelay(125); // limit touch event rate
 			}
 
             if (xTouchX && xTouchY) {
