@@ -78,6 +78,7 @@ void Lcd_Copy_Region(uint16_t x1, uint16_t y1, uint16_t width, uint16_t height,
 #define Lcd_Get_RGB565(red, green, blue) ((blue & 0x1f) + (((uint16_t) green & 0x3f) << 5) + (((uint16_t) red & 0x1f) << 11))
 
 #define LCD_BLACK   0
+#define LCD_GRAY20  Lcd_Get_RGB565(6, 12, 6)
 #define LCD_RED     Lcd_Get_RGB565(31, 0, 0)
 #define LCD_GREEN   Lcd_Get_RGB565(0, 63, 0)
 #define LCD_CYAN    Lcd_Get_RGB565(0, 63, 31)

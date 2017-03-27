@@ -71,26 +71,33 @@ uint16_t filChangeTemp = 220;
  * user callback declaration
  */
 
-void uiInitialize (xUIEvent_t *pxEvent);
-void uiMainMenu   (xUIEvent_t *pxEvent);
-void uiSetupMenu  (xUIEvent_t *pxEvent);
+static void uiInitialize (xUIEvent_t *pxEvent);
+static void uiMainMenu   (xUIEvent_t *pxEvent);
+static void uiSetupMenu  (xUIEvent_t *pxEvent);
 
-void uiMoveMenu (xUIEvent_t *pxEvent);
-void uiMoveMenuXAct(xUIEvent_t *pxEvent);
-void uiMoveMenuYAct(xUIEvent_t *pxEvent);
-void uiMoveMenuZAct(xUIEvent_t *pxEvent);
-void uiMoveMenuDistance(xUIEvent_t *pxEvent);
+static void uiMoveMenu (xUIEvent_t *pxEvent);
+static void  uiMoveMenuXAct(xUIEvent_t *pxEvent);
+static void  uiMoveMenuYAct(xUIEvent_t *pxEvent);
+static void  uiMoveMenuZAct(xUIEvent_t *pxEvent);
+static void  uiMoveMenuDistance(xUIEvent_t *pxEvent);
 
-void uiTemperatureMenu(xUIEvent_t *pxEvent);
-void uiE1TempSliderMenu(xUIEvent_t *pxEvent);
-void uiE1TempSliderSetMenu(xUIEvent_t *pxEvent);
+static void uiTemperatureMenu(xUIEvent_t *pxEvent);
+static void  uiE1TempSliderMenu(xUIEvent_t *pxEvent);
+static void  uiE1TempSliderSetMenu(xUIEvent_t *pxEvent);
 
-void uiFilChangeMenu(xUIEvent_t *pxEvent);
-void uiFilChangeTempSliderSetMenu(xUIEvent_t *pxEvent);
+static void uiFilChangeMenu(xUIEvent_t *pxEvent);
+static void  uiFilChangeTempSliderSetMenu(xUIEvent_t *pxEvent);
 
-void uiFilPreheatMenu(xUIEvent_t *pxEvent);
-void uiFilReplaceMenu(xUIEvent_t *pxEvent);
-void uiFilFeedMenu(xUIEvent_t *pxEvent);
+static void uiFilPreheatMenu(xUIEvent_t *pxEvent);
+static void  uiFilReplaceMenu(xUIEvent_t *pxEvent);
+static void  uiFilFeedMenu(xUIEvent_t *pxEvent);
+
+static void uiFileSelectMenu(xUIEvent_t *pxEvent);
+static void uiFilePrintMenu(xUIEvent_t *pxEvent);
+static void uiPrintFilChangeMenu(xUIEvent_t *pxEvent);
+static void uiPrintFilFeedMenu(xUIEvent_t *pxEvent);
+static void uiE1PrintSliderMenu(xUIEvent_t *pxEvent);
+static void  uiE1PrintSliderSetMenu(xUIEvent_t *pxEvent);
 
 typedef void (*volatile eventProcessor_t) (xUIEvent_t *);
 eventProcessor_t processEvent = uiInitialize;
@@ -227,7 +234,7 @@ __STATIC_INLINE void uiMenuHandleEventDefault(const xButton_t *pMenu, size_t men
  * user callback definition
  */
 
-void uiInitialize (xUIEvent_t *pxEvent) {
+static void uiInitialize (xUIEvent_t *pxEvent) {
 
 	if (INIT_EVENT == pxEvent->ucEventID) {
 
@@ -307,12 +314,12 @@ void uiInitialize (xUIEvent_t *pxEvent) {
 		uiMenuHandleEventDefault(NULL, 0, pxEvent);
 }
 
-void uiMainMenu (xUIEvent_t *pxEvent) {
+static void uiMainMenu (xUIEvent_t *pxEvent) {
 
     xButton_t menu[] = {
         { 0, 0, 320, 110, LCD_BLACK, "МАГНУМ" },
         { 0, 110, 320, 150, LCD_BLACK, "Иконки и статусы температуры" },
-        { 20, 170, 150, 230, LCD_DANUBE, "Печать"  },
+        { 20, 170, 150, 230, LCD_DANUBE, "Печать", .pOnTouchUp = uiFileSelectMenu},
         { 170, 170, 300, 230, LCD_DANUBE, "Настройки", .pOnTouchUp = uiSetupMenu },
     };
 
@@ -320,26 +327,27 @@ void uiMainMenu (xUIEvent_t *pxEvent) {
 }
 
 static char currentIPLabel[30] = "Текущий IP: 192.168.0.253";
-static xButton_t setupMenu[] = {
-    { 5,  20,  80, 80, LCD_ORANGE, "T Off" },
-    { 85,  20, 160, 80, LCD_ORANGE, "ДВ Off" },
-    { 165, 20, 240, 80, LCD_ORANGE, "Ст. вниз" },
-    { 245, 20, 315, 80, LCD_ORANGE, "Парк XY" },
-    { 20, 100, 300, 130, LCD_BLACK, currentIPLabel },
-    { 5,  170,  80, 230, LCD_RED, "Назад", .pOnTouchUp = uiMainMenu },
-    { 85,  170, 160, 230, LCD_ORANGE, "Пруток", .pOnTouchUp = uiFilChangeMenu },
-    { 165, 170, 240, 230, LCD_ORANGE, "T", .pOnTouchUp = uiTemperatureMenu },
-    { 245, 170, 315, 230, LCD_ORANGE, "Движ", .pOnTouchUp = uiMoveMenu }
-};
 
-void uiSetupMenu (xUIEvent_t *pxEvent) {
+static void uiSetupMenu (xUIEvent_t *pxEvent) {
 
-	uiMenuHandleEventDefault(setupMenu, sizeof(setupMenu)/sizeof(xButton_t), pxEvent);
+    xButton_t menu[] = {
+        { 5,  20,  80, 80, LCD_ORANGE, "T Off" },
+        { 85,  20, 160, 80, LCD_ORANGE, "ДВ Off" },
+        { 165, 20, 240, 80, LCD_ORANGE, "Ст. вниз" },
+        { 245, 20, 315, 80, LCD_ORANGE, "Парк XY" },
+        { 20, 100, 300, 130, LCD_BLACK, currentIPLabel },
+        { 5,  170,  80, 230, LCD_RED, "Назад", .pOnTouchUp = uiMainMenu },
+        { 85,  170, 160, 230, LCD_ORANGE, "Пруток", .pOnTouchUp = uiFilChangeMenu },
+        { 165, 170, 240, 230, LCD_ORANGE, "T", .pOnTouchUp = uiTemperatureMenu },
+        { 245, 170, 315, 230, LCD_ORANGE, "Движ", .pOnTouchUp = uiMoveMenu }
+    };
+
+	uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
 
 static char coordinatesLabel[] = "Координаты X:1200 Y:1200 Z:1200";
 
-void printDistanceLabel(uint16_t x, uint16_t y) {
+static void printDistanceLabel(uint16_t x, uint16_t y) {
 
     char distanceLabel[8];
 
@@ -362,12 +370,12 @@ static xButton_t moveMenu[] = {
     { 215, 170, 315, 230, LCD_ORANGE, "Дальше" }
 };
 
-void uiMoveMenu (xUIEvent_t *pxEvent) {
+static void uiMoveMenu (xUIEvent_t *pxEvent) {
 
     uiMenuHandleEventDefault(moveMenu, sizeof(moveMenu)/sizeof(xButton_t), pxEvent);
 }
 
-void uiMoveMenuXAct(xUIEvent_t *pxEvent) {
+static void uiMoveMenuXAct(xUIEvent_t *pxEvent) {
 
     moveMenu[0].color = LCD_GREEN; // X
     moveMenu[1].color = LCD_ORANGE;
@@ -377,7 +385,7 @@ void uiMoveMenuXAct(xUIEvent_t *pxEvent) {
     uiToggleParentState(uiMoveMenu);
 }
 
-void uiMoveMenuYAct(xUIEvent_t *pxEvent) {
+static void uiMoveMenuYAct(xUIEvent_t *pxEvent) {
 
     moveMenu[1].color = LCD_GREEN; // Y
     moveMenu[0].color = LCD_ORANGE;
@@ -387,7 +395,7 @@ void uiMoveMenuYAct(xUIEvent_t *pxEvent) {
     uiToggleParentState(uiMoveMenu);
 }
 
-void uiMoveMenuZAct(xUIEvent_t *pxEvent) {
+static void uiMoveMenuZAct(xUIEvent_t *pxEvent) {
 
     moveMenu[2].color = LCD_GREEN; // Z
     moveMenu[0].color = LCD_ORANGE;
@@ -397,7 +405,7 @@ void uiMoveMenuZAct(xUIEvent_t *pxEvent) {
     uiToggleParentState(uiMoveMenu);
 }
 
-void uiMoveMenuDistance(xUIEvent_t *pxEvent) {
+static void uiMoveMenuDistance(xUIEvent_t *pxEvent) {
 
     switch(moveStep) {
         case MOVE_01:   moveStep = MOVE_1;   break;
@@ -415,27 +423,27 @@ static char heater1Temp[] = "27 Экстр1";
 static char heater2Temp[] = "28 Экстр2";
 static char bedTemp[] = "25 Стол";
 static char fanSpeed[] = "146 %";
-static xButton_t temperatureMenu[] = {
-    { 5,  20,  80, 80, LCD_ORANGE, heater1Temp, .pOnTouchUp = uiE1TempSliderMenu },
-    { 85,  20, 160, 80, LCD_ORANGE, heater2Temp },
-    { 165, 20, 240, 80, LCD_ORANGE, bedTemp },
-    { 245, 20, 315, 80, LCD_ORANGE, fanSpeed },
-    { 20, 100, 300, 130, LCD_BLACK, "Пока просто дырка" },
-    { 5,  170,  80, 230, LCD_RED, "Назад", .pOnTouchUp = uiSetupMenu },
-    { 85,  170, 210, 230, LCD_ORANGE, "Преднагр PLA" },
-    { 215, 170, 315, 230, LCD_ORANGE, "Преднагр ABS" }
-};
 
-void uiTemperatureMenu (xUIEvent_t *pxEvent) {
+static void uiTemperatureMenu (xUIEvent_t *pxEvent) {
 
-    uiMenuHandleEventDefault(temperatureMenu, sizeof(temperatureMenu)/sizeof(xButton_t), pxEvent);
+    xButton_t menu[] = {
+        { 5,  20,  80, 80, LCD_ORANGE, heater1Temp, .pOnTouchUp = uiE1TempSliderMenu },
+        { 85,  20, 160, 80, LCD_ORANGE, heater2Temp },
+        { 165, 20, 240, 80, LCD_ORANGE, bedTemp },
+        { 245, 20, 315, 80, LCD_ORANGE, fanSpeed },
+        { 5,  170,  80, 230, LCD_RED, "Назад", .pOnTouchUp = uiSetupMenu },
+        { 85,  170, 210, 230, LCD_ORANGE, "Преднагр PLA" },
+        { 215, 170, 315, 230, LCD_ORANGE, "Преднагр ABS" }
+    };
+
+    uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
 
-void printE1TempSlider(uint16_t x, uint16_t y) {
+static void printE1TempSlider(uint16_t x, uint16_t y) {
     uiDrawSlider(115, e1PreheatTemp, MAX_EXTRUDER_TEMP, LCD_DANUBE, LCD_RED);
 }
 
-void printE1TempLabel(uint16_t x, uint16_t y) {
+static void printE1TempLabel(uint16_t x, uint16_t y) {
 
     char tempLabel[40];
     snprintf(tempLabel, sizeof(tempLabel),  "%3d C", e1PreheatTemp);
@@ -451,12 +459,12 @@ static xButton_t tempSliderMenu[] = {
     { 215, 170, 315, 230, LCD_ORANGE, "Установить", .pOnTouchUp = uiTemperatureMenu }
 };
 
-void uiE1TempSliderMenu (xUIEvent_t *pxEvent) {
+static void uiE1TempSliderMenu (xUIEvent_t *pxEvent) {
 
     uiMenuHandleEventDefault(tempSliderMenu, sizeof(tempSliderMenu)/sizeof(xButton_t), pxEvent);
 }
 
-void uiE1TempSliderSetMenu (xUIEvent_t *pxEvent) {
+static void uiE1TempSliderSetMenu (xUIEvent_t *pxEvent) {
 
     uint16_t temp = MAX_EXTRUDER_TEMP * touchX / 320;
 
@@ -473,33 +481,33 @@ void uiE1TempSliderSetMenu (xUIEvent_t *pxEvent) {
     uiToggleParentState(uiE1TempSliderMenu);
 }
 
-void printFilChangeTempSlider(uint16_t x, uint16_t y) {
+static void printFilChangeTempSlider(uint16_t x, uint16_t y) {
     uiDrawSlider(115, filChangeTemp, MAX_EXTRUDER_TEMP, LCD_DANUBE, LCD_RED);
 }
 
-void printFilChangeTempLabel(uint16_t x, uint16_t y) {
+static void printFilChangeTempLabel(uint16_t x, uint16_t y) {
 
     char tempLabel[40];
     snprintf(tempLabel, sizeof(tempLabel),  "%3d C", filChangeTemp);
     Lcd_Put_Text(x - (strlen(tempLabel) << 2), y - 8, 16, tempLabel, 0xffffu);
 }
 
-static xButton_t filChangeMenu[] = {
-    { 20, 30, 300, 69, LCD_BLACK, "Смена/извлечение прутка" },
-    { 20, 70, 186, 99, LCD_BLACK, "Температура нагрева" },
-    { 190, 70, 240, 99, LCD_BLACK, NULL, printFilChangeTempLabel },
-    { 5, 107, 315, 143, LCD_BLACK, NULL, printFilChangeTempSlider, .pOnTouchDown = uiFilChangeTempSliderSetMenu },
-    { 5,  170, 80, 230, LCD_RED, "Назад", .pOnTouchUp = uiSetupMenu },
-    { 85,  170, 210, 230, LCD_ORANGE, "Экструдер 1", .pOnTouchUp = uiFilPreheatMenu },
-    { 215, 170, 315, 230, LCD_ORANGE, "Экструдер 2", .pOnTouchUp = uiFilPreheatMenu }
-};
+static void uiFilChangeMenu(xUIEvent_t *pxEvent) {
 
-void uiFilChangeMenu(xUIEvent_t *pxEvent) {
+    xButton_t menu[] = {
+        { 20, 30, 300, 69, LCD_BLACK, "Смена/извлечение прутка" },
+        { 20, 70, 186, 99, LCD_BLACK, "Температура нагрева" },
+        { 190, 70, 240, 99, LCD_BLACK, NULL, printFilChangeTempLabel },
+        { 5, 107, 315, 143, LCD_BLACK, NULL, printFilChangeTempSlider, .pOnTouchDown = uiFilChangeTempSliderSetMenu },
+        { 5,  170, 80, 230, LCD_RED, "Назад", .pOnTouchUp = uiSetupMenu },
+        { 85,  170, 210, 230, LCD_DANUBE, "Экструдер 1", .pOnTouchUp = uiFilPreheatMenu },
+        { 215, 170, 315, 230, LCD_DANUBE, "Экструдер 2", .pOnTouchUp = uiFilPreheatMenu }
+    };
 
-    uiMenuHandleEventDefault(filChangeMenu, sizeof(filChangeMenu)/sizeof(xButton_t), pxEvent);
+    uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
 
-void uiFilChangeTempSliderSetMenu (xUIEvent_t *pxEvent) {
+static void uiFilChangeTempSliderSetMenu (xUIEvent_t *pxEvent) {
 
     uint16_t temp = MAX_EXTRUDER_TEMP * touchX / 320;
 
@@ -516,14 +524,14 @@ void uiFilChangeTempSliderSetMenu (xUIEvent_t *pxEvent) {
     uiToggleParentState(uiFilChangeMenu);
 }
 
-void printFilPreheatTempLabel(uint16_t x, uint16_t y) {
+static void printFilPreheatTempLabel(uint16_t x, uint16_t y) {
 
     char tempLabel[40];
     snprintf(tempLabel, sizeof(tempLabel),  "%3d C", /* FIXME */ 666 );
     Lcd_Put_Text(x - (strlen(tempLabel) << 2), y - 8, 16, tempLabel, 0xffffu);
 }
 
-void uiFilPreheatMenu(xUIEvent_t *pxEvent) {
+static void uiFilPreheatMenu(xUIEvent_t *pxEvent) {
 
     xButton_t menu[] = {
         { 0, 0, 320, 70, LCD_BLACK, "Нагрев экструдера" },
@@ -538,7 +546,7 @@ void uiFilPreheatMenu(xUIEvent_t *pxEvent) {
     uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
 
-void uiFilReplaceMenu(xUIEvent_t *pxEvent) {
+static void uiFilReplaceMenu(xUIEvent_t *pxEvent) {
 
     xButton_t menu[] = {
         { 0, 0, 320, 70, LCD_BLACK, "Экструдер нагрет и пруток извлечен" },
@@ -551,7 +559,7 @@ void uiFilReplaceMenu(xUIEvent_t *pxEvent) {
     uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
 
-void uiFilFeedMenu(xUIEvent_t *pxEvent) {
+static void uiFilFeedMenu(xUIEvent_t *pxEvent) {
 
     xButton_t menu[] = {
         { 0, 0, 320, 70, LCD_BLACK, "Идет подача прутка" },
@@ -563,6 +571,98 @@ void uiFilFeedMenu(xUIEvent_t *pxEvent) {
 
     uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
+
+static void uiFileSelectMenu(xUIEvent_t *pxEvent) {
+
+    /* STUB */
+    xButton_t menu[] = {
+        { 5,  10, 80, 70, LCD_RED, "Назад", .pOnTouchUp = uiMainMenu },
+        { 90,  10, 190, 70, LCD_DANUBE, "USB" /*, .pOnTouchUp = */ },
+        { 200, 10, 315, 70, LCD_DANUBE, "SD карта"/*, .pOnTouchUp = */ },
+        { 5, 80, 235, 119, LCD_GRAY20, "Some file.gcode", .pOnTouchUp = uiFilePrintMenu },
+        { 5, 120, 235, 159, LCD_BLACK, "File_2.gcode", .pOnTouchUp = uiFilePrintMenu },
+        { 5, 160, 235, 199, LCD_GRAY20, "Файл 7.gcode", .pOnTouchUp = uiFilePrintMenu },
+        { 5, 200, 235, 239, LCD_BLACK, "File_long_long_name.g...", .pOnTouchUp = uiFilePrintMenu },
+        { 245, 80, 315, 149, LCD_RED, "Вверх" /*, .pOnTouchUp = */ },
+        { 245, 170, 315, 239, LCD_RED, "Вниз" /*, .pOnTouchUp = */ }
+    };
+
+	uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
+}
+
+static void uiFilePrintMenu(xUIEvent_t *pxEvent) {
+
+    xButton_t menu[] = {
+        { 5,  20,  80, 80, LCD_ORANGE, heater1Temp, .pOnTouchUp = uiE1PrintSliderMenu },
+        { 85,  20, 160, 80, LCD_ORANGE, heater2Temp },
+        { 165, 20, 240, 80, LCD_ORANGE, bedTemp },
+        { 245, 20, 315, 80, LCD_ORANGE, fanSpeed },
+        { 20, 100, 300, 130, LCD_BLACK, "Пока просто дырка" },
+        { 5,  170,  80, 230, LCD_DANUBE, "Пауза" },
+        { 85,  170, 210, 230, LCD_DANUBE, "Сменить пруток", .pOnTouchUp =  uiPrintFilChangeMenu},
+        { 215, 170, 315, 230, LCD_RED, "Отменить", .pOnTouchUp = uiMainMenu }
+    };
+
+    uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
+}
+
+static void uiPrintFilChangeMenu(xUIEvent_t *pxEvent) {
+
+    xButton_t menu[] = {
+        { 0, 0, 320, 70, LCD_BLACK, "Пруток извлекается..." },
+        { 0, 100, 320, 116, LCD_BLACK, "Подождите пока старый пруток" },
+        { 0, 116, 320, 132, LCD_BLACK, "будет извлечен из экструдера." },
+        { 0, 132, 320, 148, LCD_BLACK, "Удалите его и заправьте новый." },
+        { 100, 170, 230, 230, LCD_DANUBE, "Далее", .pOnTouchUp = uiPrintFilFeedMenu },
+    };
+
+    uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
+}
+
+static void uiPrintFilFeedMenu(xUIEvent_t *pxEvent) {
+
+    xButton_t menu[] = {
+        { 0, 0, 320, 70, LCD_BLACK, "Идет подача прутка" },
+        { 0, 100, 320, 116, LCD_BLACK, "Когда пластик начнет выходить из сопла" },
+        { 0, 116, 320, 132, LCD_BLACK, "нажмите \"Продолжить\" для возвращения" },
+        { 0, 132, 320, 148, LCD_BLACK, "к печати." },
+        { 100, 170, 230, 230, LCD_DANUBE, "Продолжить", .pOnTouchUp = uiFilePrintMenu },
+    };
+
+    uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
+}
+
+static xButton_t printSliderMenu[] = {
+    { 20, 30, 300, 69, LCD_BLACK, "Температура экструдера 1" },
+    { 20, 70, 186, 99, LCD_BLACK, "Установить температуру" },
+    { 190, 70, 240, 99, LCD_BLACK, NULL, printE1TempLabel },
+    { 5, 107, 315, 143, LCD_BLACK, NULL, printE1TempSlider, .pOnTouchDown = uiE1PrintSliderSetMenu },
+    { 5,  170,  80, 230, LCD_RED, "Назад", .pOnTouchUp = uiFilePrintMenu },
+    { 215, 170, 315, 230, LCD_ORANGE, "Применить", .pOnTouchUp = uiFilePrintMenu }
+};
+
+static void uiE1PrintSliderMenu(xUIEvent_t *pxEvent) {
+
+    uiMenuHandleEventDefault(printSliderMenu, sizeof(printSliderMenu)/sizeof(xButton_t), pxEvent);
+}
+
+static void  uiE1PrintSliderSetMenu(xUIEvent_t *pxEvent) {
+
+    uint16_t temp = MAX_EXTRUDER_TEMP * touchX / 320;
+
+    if (temp != e1PreheatTemp) {
+        e1PreheatTemp = temp;
+
+        Lcd_Fill_Rect(190, 70, 240, 99, 0);
+        uiDrawMenuItem(&printSliderMenu[2]);
+
+        Lcd_Fill_Rect(8, 95, 312, 146, 0);
+        uiDrawMenuItem(&printSliderMenu[3]);
+    }
+
+    uiToggleParentState(uiE1PrintSliderMenu);
+}
+
 
 /*
  * service routines definition
