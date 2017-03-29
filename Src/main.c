@@ -641,14 +641,17 @@ void StartComm1Task(void const * argument) {
 	while (1) {
 	    if(xSemaphoreTake(xComm1Semaphore, 5000 /* FIXME */ ) == pdTRUE ) {
 
-            xUIEvent_t event;
-            event.ucEventID = SHOW_STATUS;
-            xQueueSendToBack(xUIEventQueue, &event, 1000);
+            // xUIEvent_t event;
+            // event.ucEventID = SHOW_STATUS;
+            // xQueueSendToBack(xUIEventQueue, &event, 1000);
+
+            xUIEvent_t event = { REDRAW_EVENT };
+            xQueueSendToFront(xUIEventQueue, &event, 1000);
  	    }
         else
         {
             // osDelay(1);
-            static const char m115[] = "M119\n";
+            static const char m115[] = "M105\n";
 
             HAL_UART_Transmit(&huart2, m115, /* sizeof(m115)*/ 5, 1000);
             osDelay(20);
@@ -673,28 +676,34 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
         if (comm1RxBuffer == '\n' || comm1RxBuffer == '\r') // If Enter
         {
-            if (comm1RxString[0] != 'o' || comm1RxString[1] != 'k') {
-                snprintf(statString, MAXSTATSIZE, "%s", comm1RxString);
-            }
+             comm1RxString[comm1RxIndex] = 0;
 
-            comm1RxString[comm1RxIndex] = 0;
+            // M105: ok T:24.3 /0.0 B:25.6 /0.0 T0:24.3 /0.0 @:0 B@:0
+            int res = sscanf(comm1RxString, "ok T:%f /%f B:%f /%f",
+                    &e1CurTemp, &e1TargetTemp, &bedCurTemp, &bedTargetTemp);
+
+            if (res) { // M105 response detected
+                snprintf(statString, MAXSTATSIZE, "%d T0:%3.1f /%3.1f B:%3.1f /%3.1f",
+                         res, e1CurTemp, e1TargetTemp, bedCurTemp, bedTargetTemp);
+
+                BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+                xSemaphoreGiveFromISR(xComm1Semaphore, &xHigherPriorityTaskWoken);
+            };
+
             comm1RxIndex = 0;
-            for (i = 0; i < MAXSTATSIZE; i++) comm1RxString[i] = 0; // Clear the string buffer
-
-            BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-            xSemaphoreGiveFromISR(xComm1Semaphore, &xHigherPriorityTaskWoken);
+            // for (i = 0; i < MAXSTATSIZE; i++) comm1RxString[i] = 0; // Clear the string buffer
         }
         else
         {
             comm1RxString[comm1RxIndex] = comm1RxBuffer; // Add that character to the string
             comm1RxIndex++;
-            if (comm1RxIndex > MAXSTATSIZE) // User typing too much, we can't have commands that big
+
+            if (comm1RxIndex >= MAXSTATSIZE) // User typing too much, we can't have commands that big
             {
                 comm1RxIndex = 0;
                 for (i = 0; i < MAXSTATSIZE; i++) comm1RxString[i] = 0; // Clear the string buffer
             }
         }
-	    //
 	}
 }
 /* USER CODE END 4 */

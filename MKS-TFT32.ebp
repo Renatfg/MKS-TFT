@@ -34,6 +34,8 @@
 					<Add option="-Wa,--gdwarf-2" />
 				</Assembler>
 				<Linker>
+					<Add option="-u _scanf_float" />
+					<Add option="-u _printf_float" />
 					<Add option="-Wl,--gc-sections" />
 				</Linker>
 				<ExtraCommands>

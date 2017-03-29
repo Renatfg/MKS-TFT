@@ -51,7 +51,7 @@ typedef struct
 {
     enum {
     	INIT_EVENT = 0,
-    	TOGGLE_EVENT,
+    	REDRAW_EVENT,
     	TOUCH_DOWN_EVENT,
 		TOUCH_UP_EVENT,
 		SDCARD_INSERT,
@@ -67,7 +67,7 @@ typedef struct
 
 extern QueueHandle_t xUIEventQueue;
 
-#define MAXSTATSIZE 320/8
+#define MAXSTATSIZE 80
 extern uint8_t statString[MAXSTATSIZE+1];
 
 typedef void (*volatile eventProcessor_t) (xUIEvent_t *);
@@ -136,9 +136,15 @@ typedef enum {
 } xFSSelection_t;
 extern uint8_t selectedFs;
 
-extern uint16_t e1PreheatTemp;
-extern uint16_t e2PreheatTemp;
-extern uint16_t filChangeTemp;
+extern volatile float e1TargetTemp;
+extern volatile float e2TargetTemp;
+extern volatile float bedTargetTemp;
+
+extern volatile float e1CurTemp;
+extern volatile float e2CurTemp;
+extern volatile float bedCurTemp;
+
+extern volatile uint8_t isPrinting;
 
 #endif /* __UI_H */
 /************************ (C) COPYRIGHT Roman Stepanov *****END OF FILE****/
