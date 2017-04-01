@@ -378,8 +378,6 @@ static void uiSetupMenu (xUIEvent_t *pxEvent) {
 	uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
 
-static char coordinatesLabel[] = "Координаты X:1200 Y:1200 Z:1200";
-
 static void printDistanceLabel(uint16_t x, uint16_t y) {
 
     char distanceLabel[8];
@@ -392,12 +390,22 @@ static void printDistanceLabel(uint16_t x, uint16_t y) {
     Lcd_Put_Text(x - (strlen(distanceLabel) << 2), y - 8, 16, distanceLabel, 0xffffu);
 }
 
+static void printCoordinatesLabel(uint16_t x, uint16_t y) {
+
+    char coordinatesLabel[40];
+
+    snprintf(coordinatesLabel, sizeof(coordinatesLabel), "Координаты X:%3.1f Y:%3.1f Z:%3.1f",
+             printerX, printerY, printerZ);
+
+    Lcd_Put_Text(x - (strlen(coordinatesLabel) << 2), y - 8, 16, coordinatesLabel, 0xffffu);
+}
+
 static xButton_t moveMenu[] = {
     { 5,  20,  80, 80, LCD_GREEN, "X", .pOnTouchUp = uiMoveMenuXAct },
     { 85,  20, 160, 80, LCD_ORANGE, "Y", .pOnTouchUp = uiMoveMenuYAct },
     { 165, 20, 240, 80, LCD_ORANGE, "Z", .pOnTouchUp = uiMoveMenuZAct },
     { 245, 20, 315, 80, LCD_ORANGE, NULL, printDistanceLabel, uiMoveMenuDistance },
-    { 20, 100, 300, 130, LCD_BLACK, coordinatesLabel },
+    { 20, 100, 300, 130, LCD_BLACK, NULL, printCoordinatesLabel },
     { 5,  170,  80, 230, LCD_RED, "Назад", .pOnTouchUp = uiSetupMenu },
     { 85,  170, 210, 230, LCD_ORANGE, "Ближе" },
     { 215, 170, 315, 230, LCD_ORANGE, "Дальше" }
@@ -405,12 +413,23 @@ static xButton_t moveMenu[] = {
 
 static void uiMoveMenu (xUIEvent_t *pxEvent) {
 
-    if (pxEvent->ucEventID == REDRAW_EVENT)
+    switch (pxEvent->ucEventID) {
+    case REDRAW_EVENT:
+        Lcd_Fill_Rect(moveMenu[4].x1, moveMenu[4].y1, moveMenu[4].x2, moveMenu[4].y2, 0);
+        uiDrawMenu(moveMenu, 5);
+        break;
+
+    case INIT_EVENT:
     {
-        uiDrawMenu(moveMenu, 3);
+        xCommEvent_t event = { "M114\n" };
+        xQueueSendToBack(xPCommEventQueue, &event, 1000);
+
+        /* TODO: start coordinates update timer */
     }
-    else
+
+    default:
         uiMenuHandleEventDefault(moveMenu, sizeof(moveMenu)/sizeof(xButton_t), pxEvent);
+    }
 }
 
 static void uiMoveMenuXAct(xUIEvent_t *pxEvent) {

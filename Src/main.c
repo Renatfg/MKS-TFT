@@ -616,13 +616,28 @@ void StartComm1Task(void const * argument) {
 
                 if(xSemaphoreTake(xComm1Semaphore, 5000 /* FIXME: receive timeout */ ) == pdTRUE ) {
 
-                    // M105: ok T:24.3 /0.0 B:25.6 /0.0 T0:24.3 /0.0 @:0 B@:0
-                    int res = sscanf(comm1RxBuf, "ok T:%f /%f B:%f /%f",
-                            &e1CurTemp, &e1TargetTemp, &bedCurTemp, &bedTargetTemp);
+                    int gcode = 0;
 
-                    if (res) { // M105 response detected
-                        xUIEvent_t uiEvent = { REDRAW_EVENT };
-                        xQueueSendToFront(xUIEventQueue, &uiEvent, 1000);
+                    if (strlen(event.ucCmd) > 1 && sscanf(event.ucCmd, "M%d", &gcode)) {
+
+                        switch(gcode) {
+                        case 105:
+                            if (sscanf(comm1RxBuf, "ok T:%f /%f B:%f /%f",
+                                    &e1CurTemp, &e1TargetTemp, &bedCurTemp, &bedTargetTemp)) { // M105 response detected
+                                xUIEvent_t uiEvent = { REDRAW_EVENT };
+                                xQueueSendToFront(xUIEventQueue, &uiEvent, 1000);
+                            }
+                            break;
+
+                        case 114:
+                            if (sscanf(comm1RxBuf, "X:%f Y:%f Z:%f E:%f",
+                                    &printerX, &printerY, &printerZ, &printerE1)) { // M114 response detected
+
+                                xUIEvent_t uiEvent = { REDRAW_EVENT };
+                                xQueueSendToFront(xUIEventQueue, &uiEvent, 1000);
+                            }
+                            break;
+                        }
                     }
                 }
 
