@@ -49,7 +49,7 @@ extern TIM_HandleTypeDef htim2;
 
 #define READY_PRINT	"Магнум"
 
-uint8_t statString[MAXSTATSIZE+1];
+uint8_t comm1RxBuf[MAXSTATSIZE+1];
 
 uint16_t moveStep = MOVE_10;
 // uint8_t offMode = MANUAL_OFF;
@@ -75,6 +75,12 @@ static float newTargetTemp = 0.0;
 static uint8_t uiSelExtruder = 1;
 volatile uint8_t isPrinting = 0;
 
+volatile float printerX  = 0;
+volatile float printerY  = 0;
+volatile float printerZ  = 0;
+volatile float printerE1 = 0;
+volatile float printerE2 = 0;
+
 /*
  * user callback declaration
  */
@@ -91,11 +97,16 @@ static void  uiMoveMenuDistance(xUIEvent_t *pxEvent);
 
 static void uiTemperatureMenu(xUIEvent_t *pxEvent);
 static void  uiE1TempSliderMenu(xUIEvent_t *pxEvent);
-static void  uiE1TempSliderSetMenu(xUIEvent_t *pxEvent);
+static void   uiE1TempSliderSetMenu(xUIEvent_t *pxEvent);
+static void    uiE1TempSliderApply(xUIEvent_t *pxEvent);
+
 static void  uiE2TempSliderMenu(xUIEvent_t *pxEvent);
-static void  uiE2TempSliderSetMenu(xUIEvent_t *pxEvent);
+static void   uiE2TempSliderSetMenu(xUIEvent_t *pxEvent);
+static void    uiE2TempSliderApply(xUIEvent_t *pxEvent);
+
 static void  uiBedTempSliderMenu(xUIEvent_t *pxEvent);
-static void  uiBedTempSliderSetMenu(xUIEvent_t *pxEvent);
+static void   uiBedTempSliderSetMenu(xUIEvent_t *pxEvent);
+static void    uiBedTempSliderApply(xUIEvent_t *pxEvent);
 
 static void uiFilChangeMenu(xUIEvent_t *pxEvent);
 static void  uiFilChangeTempSliderSetMenu(xUIEvent_t *pxEvent);
@@ -194,10 +205,10 @@ __STATIC_INLINE void uiMenuHandleEventDefault(const xButton_t *pMenu, size_t men
 			uiMediaStateChange(pxEvent->ucEventID);
 			break;
 
-        case SHOW_STATUS:
-            Lcd_Fill_Rect(0, LCD_MAX_Y - 9, LCD_MAX_X, LCD_MAX_Y, 0);
-            Lcd_Put_Text(10, LCD_MAX_Y - 9, 8, statString, 0xffffu);
-            break;
+//        case SHOW_STATUS:
+//            Lcd_Fill_Rect(0, LCD_MAX_Y - 9, LCD_MAX_X, LCD_MAX_Y, 0);
+//            Lcd_Put_Text(10, LCD_MAX_Y - 9, 8, comm1RxBuf, 0xffffu);
+//            break;
 
 		case INIT_EVENT:
 			if (pMenu) {
@@ -551,7 +562,7 @@ static void uiTempSliderMenu (xUIEvent_t *pxEvent, eventProcessor_t back, eventP
 static void uiE1TempSliderMenu (xUIEvent_t *pxEvent) {
 
     uiSelExtruder = 1;
-    uiTempSliderMenu(pxEvent, uiTemperatureMenu, uiTemperatureMenu, uiE1TempSliderSetMenu);
+    uiTempSliderMenu(pxEvent, uiTemperatureMenu, uiE1TempSliderApply, uiE1TempSliderSetMenu);
 }
 
 static void uiE1TempSliderSetMenu (xUIEvent_t *pxEvent) {
@@ -559,10 +570,19 @@ static void uiE1TempSliderSetMenu (xUIEvent_t *pxEvent) {
     uiToggleRedrawParentState(uiE1TempSliderMenu);
 }
 
+static void uiE1TempSliderApply(xUIEvent_t *pxEvent) {
+
+    xCommEvent_t event;
+    snprintf(event.ucCmd, sizeof(event.ucCmd), "M104 T0 S%3.0f\n", newTargetTemp);
+    xQueueSendToBack(xPCommEventQueue, &event, 1000);
+
+    uiNextState(uiTemperatureMenu);
+}
+
 static void uiE2TempSliderMenu (xUIEvent_t *pxEvent) {
 
     uiSelExtruder = 2;
-    uiTempSliderMenu(pxEvent, uiTemperatureMenu, uiTemperatureMenu, uiE2TempSliderSetMenu);
+    uiTempSliderMenu(pxEvent, uiTemperatureMenu, uiE2TempSliderApply, uiE2TempSliderSetMenu);
 }
 
 static void uiE2TempSliderSetMenu (xUIEvent_t *pxEvent) {
@@ -570,15 +590,33 @@ static void uiE2TempSliderSetMenu (xUIEvent_t *pxEvent) {
     uiToggleRedrawParentState(uiE2TempSliderMenu);
 }
 
+static void uiE2TempSliderApply(xUIEvent_t *pxEvent) {
+
+    xCommEvent_t event;
+    snprintf(event.ucCmd, sizeof(event.ucCmd), "M104 T1 S%3.0f\n", newTargetTemp);
+    xQueueSendToBack(xPCommEventQueue, &event, 1000);
+
+    uiNextState(uiTemperatureMenu);
+}
+
 static void uiBedTempSliderMenu (xUIEvent_t *pxEvent) {
 
     uiSelExtruder = 0xffu;
-    uiTempSliderMenu(pxEvent, uiTemperatureMenu, uiTemperatureMenu, uiE2TempSliderSetMenu);
+    uiTempSliderMenu(pxEvent, uiTemperatureMenu, uiBedTempSliderApply, uiBedTempSliderSetMenu);
 }
 
 static void uiBedTempSliderSetMenu (xUIEvent_t *pxEvent) {
 
     uiToggleRedrawParentState(uiBedTempSliderMenu);
+}
+
+static void uiBedTempSliderApply(xUIEvent_t *pxEvent) {
+
+    xCommEvent_t event;
+    snprintf(event.ucCmd, sizeof(event.ucCmd), "M140 S%3.0f\n", newTargetTemp);
+    xQueueSendToBack(xPCommEventQueue, &event, 1000);
+
+    uiNextState(uiTemperatureMenu);
 }
 
 static void uiFilChangeMenu(xUIEvent_t *pxEvent) {

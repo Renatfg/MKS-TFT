@@ -47,6 +47,14 @@
 # define NAMELEN	13
 #endif
 
+#define MAXSTATSIZE 0xffu
+extern uint8_t comm1RxBuf[MAXSTATSIZE+1];
+
+typedef struct
+{
+    uint8_t ucCmd[MAXSTATSIZE];
+} xCommEvent_t;
+
 typedef struct
 {
     enum {
@@ -58,7 +66,7 @@ typedef struct
 		SDCARD_REMOVE,
 		USBDRIVE_INSERT,
 		USBDRIVE_REMOVE,
-		SHOW_STATUS
+//		SHOW_STATUS
     } ucEventID;
     union {
     	unsigned int touchXY;
@@ -66,9 +74,7 @@ typedef struct
 } xUIEvent_t;
 
 extern QueueHandle_t xUIEventQueue;
-
-#define MAXSTATSIZE 80
-extern uint8_t statString[MAXSTATSIZE+1];
+extern QueueHandle_t xPCommEventQueue;
 
 typedef void (*volatile eventProcessor_t) (xUIEvent_t *);
 extern eventProcessor_t processEvent;
@@ -143,6 +149,12 @@ extern volatile float bedTargetTemp;
 extern volatile float e1CurTemp;
 extern volatile float e2CurTemp;
 extern volatile float bedCurTemp;
+
+extern volatile float printerX;
+extern volatile float printerY;
+extern volatile float printerZ;
+extern volatile float printerE1;
+extern volatile float printerE2;
 
 extern volatile uint8_t isPrinting;
 

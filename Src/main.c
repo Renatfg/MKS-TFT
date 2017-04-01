@@ -71,6 +71,9 @@ static uint8_t comm1RxBuffer = '\000';      // where we store that one character
 static uint8_t comm1RxString[MAXCOMM1SIZE]; // where we build our string from characters coming in
 static int comm1RxIndex = 0;                // index for going though comm1RxString
 
+TimerHandle_t xM105Timer;
+void vM105TimerCallback( TimerHandle_t xTimer );
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -106,13 +109,6 @@ static SemaphoreHandle_t xComm2Semaphore;
 
 int main(void)
 {
-	/* USER CODE BEGIN 1 */
-
-	/* USER CODE END 1 */
-
-	/* MCU Configuration----------------------------------------------------------*/
-
-	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
 	HAL_Init();
 
 	/* Configure the system clock */
@@ -128,31 +124,11 @@ int main(void)
 	MX_USART2_UART_Init();
 	MX_USART3_UART_Init();
 
-	/* USER CODE BEGIN 2 */
-
-	/* USER CODE END 2 */
-
-	/* USER CODE BEGIN RTOS_MUTEX */
-	/* add mutexes, ... */
-	/* USER CODE END RTOS_MUTEX */
-
-	/* USER CODE BEGIN RTOS_SEMAPHORES */
-	/* add semaphores, ... */
 	xTouchSemaphore = xSemaphoreCreateBinary();
 	xSDSemaphore    = xSemaphoreCreateBinary();
 	xComm1Semaphore = xSemaphoreCreateBinary();
 	xComm2Semaphore = xSemaphoreCreateBinary();
-	/* USER CODE END RTOS_SEMAPHORES */
 
-	/* USER CODE BEGIN RTOS_TIMERS */
-	/* start timers, add new ones, ... */
-	/* USER CODE END RTOS_TIMERS */
-
-	/* Create the thread(s) */
-	/* definition and creation of uiTask */
-
-	/* USER CODE BEGIN RTOS_THREADS */
-	/* add threads, ... */
 	osThreadDef(touchHandlerTask, StartTouchHandlerTask, osPriorityNormal, 0, 128);
 	touchHandlerHandle = osThreadCreate(osThread(touchHandlerTask), NULL);
 
@@ -167,35 +143,24 @@ int main(void)
 
 	osThreadDef(uiTask, StartUITask, osPriorityNormal, 0, 14 * 1024 / 4);
 	uiTaskHandlerHandle = osThreadCreate(osThread(uiTask), NULL);
-	/* USER CODE END RTOS_THREADS */
 
-	/* USER CODE BEGIN RTOS_QUEUES */
-	/* add queues, ... */
 	xUIEventQueue = xQueueCreate(1, sizeof(xUIEvent_t));
 	if (xUIEventQueue == NULL) {
 		/* Queue was not created and must not be used. */
 	}
 
-	xPCommEventQueue = xQueueCreate(10, sizeof(xUIEvent_t));
+	xPCommEventQueue = xQueueCreate(10, sizeof(xCommEvent_t));
 	if (xPCommEventQueue == NULL) {
 		/* Queue was not created and must not be used. */
 	}
-	/* USER CODE END RTOS_QUEUES */
 
-	/* Start scheduler */
-	osKernelStart();
-
-	/* We should never get here as control is now taken by the scheduler */
-
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
-	while (1) {
-		/* USER CODE END WHILE */
-
-		/* USER CODE BEGIN 3 */
-
+	xM105Timer = xTimerCreate("xM105Timer", 5000, pdTRUE, ( void * ) 0, vM105TimerCallback);
+	if (xM105Timer == NULL) {
+		/* Timer was not created and must not be used. */
 	}
-	/* USER CODE END 3 */
+
+	osKernelStart();
+	while (1) {}
 }
 
 /** System Clock Configuration
@@ -267,7 +232,6 @@ static void MX_I2C1_Init(void)
   {
     Error_Handler();
   }
-
 }
 
 /* SPI1 init function */
@@ -290,7 +254,6 @@ static void MX_SPI1_Init(void)
   {
     Error_Handler();
   }
-
 }
 
 /* SPI3 init function */
@@ -313,7 +276,6 @@ static void MX_SPI3_Init(void)
   {
     Error_Handler();
   }
-
 }
 
 /* USART2 init function */
@@ -332,7 +294,6 @@ static void MX_USART2_UART_Init(void)
   {
     Error_Handler();
   }
-
 }
 
 /* USART3 init function */
@@ -351,7 +312,6 @@ static void MX_USART3_UART_Init(void)
   {
     Error_Handler();
   }
-
 }
 
 /**
@@ -638,25 +598,47 @@ void StartComm1Task(void const * argument) {
     __HAL_UART_FLUSH_DRREGISTER(&huart2);
     HAL_UART_Receive_DMA(&huart2, &comm1RxBuffer, 1);
 
+    if(xTimerStart(xM105Timer, 0) != pdPASS) // TODO: only start if connected to printer
+    {
+        /* The timer could not be set into the Active
+        state. */
+    }
+
 	while (1) {
-	    if(xSemaphoreTake(xComm1Semaphore, 5000 /* FIXME */ ) == pdTRUE ) {
 
-            // xUIEvent_t event;
-            // event.ucEventID = SHOW_STATUS;
-            // xQueueSendToBack(xUIEventQueue, &event, 1000);
+   		if (xPCommEventQueue != 0) {
 
-            xUIEvent_t event = { REDRAW_EVENT };
-            xQueueSendToFront(xUIEventQueue, &event, 1000);
- 	    }
-        else
-        {
-            // osDelay(1);
-            static const char m115[] = "M105\n";
+			xCommEvent_t event;
+			if (xQueueReceive(xPCommEventQueue, &event, (TickType_t ) 5000)) {
 
-            HAL_UART_Transmit(&huart2, m115, /* sizeof(m115)*/ 5, 1000);
-            osDelay(20);
-        }
-	}
+                /* Send to UART */
+                HAL_UART_Transmit(&huart2, event.ucCmd, strlen(event.ucCmd), 1000);
+
+                if(xSemaphoreTake(xComm1Semaphore, 5000 /* FIXME: receive timeout */ ) == pdTRUE ) {
+
+                    // M105: ok T:24.3 /0.0 B:25.6 /0.0 T0:24.3 /0.0 @:0 B@:0
+                    int res = sscanf(comm1RxBuf, "ok T:%f /%f B:%f /%f",
+                            &e1CurTemp, &e1TargetTemp, &bedCurTemp, &bedTargetTemp);
+
+                    if (res) { // M105 response detected
+                        xUIEvent_t uiEvent = { REDRAW_EVENT };
+                        xQueueSendToFront(xUIEventQueue, &uiEvent, 1000);
+                    }
+                }
+
+			} else {
+				/*
+				 * No events received
+				 * */
+			}
+		}
+ 	}
+}
+
+void vM105TimerCallback( TimerHandle_t xTimer ) {
+
+    xCommEvent_t event = { "M105\n" };
+    xQueueSendToBack(xPCommEventQueue, &event, 1000);
 }
 
 void StartComm2Task(void const * argument) {
@@ -676,22 +658,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
         if (comm1RxBuffer == '\n' || comm1RxBuffer == '\r') // If Enter
         {
-             comm1RxString[comm1RxIndex] = 0;
-
-            // M105: ok T:24.3 /0.0 B:25.6 /0.0 T0:24.3 /0.0 @:0 B@:0
-            int res = sscanf(comm1RxString, "ok T:%f /%f B:%f /%f",
-                    &e1CurTemp, &e1TargetTemp, &bedCurTemp, &bedTargetTemp);
-
-            if (res) { // M105 response detected
-                snprintf(statString, MAXSTATSIZE, "%d T0:%3.1f /%3.1f B:%3.1f /%3.1f",
-                         res, e1CurTemp, e1TargetTemp, bedCurTemp, bedTargetTemp);
-
-                BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-                xSemaphoreGiveFromISR(xComm1Semaphore, &xHigherPriorityTaskWoken);
-            };
-
+            comm1RxString[comm1RxIndex] = 0;
             comm1RxIndex = 0;
-            // for (i = 0; i < MAXSTATSIZE; i++) comm1RxString[i] = 0; // Clear the string buffer
+
+            strncpy(comm1RxBuf, comm1RxString, MAXSTATSIZE);
+
+            BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+            xSemaphoreGiveFromISR(xComm1Semaphore, &xHigherPriorityTaskWoken);
         }
         else
         {
