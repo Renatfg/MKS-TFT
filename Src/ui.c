@@ -758,7 +758,6 @@ static void uiFileSelectMenu(xUIEvent_t *pxEvent) {
         if (res == FR_OK) {
 
             FILINFO *pFno;
-            FRESULT res = FR_OK;
 
             if ((pFno = pvPortMalloc(sizeof(FILINFO))) != NULL) {
 
@@ -920,17 +919,21 @@ static void uiBedPrintSliderSetMenu (xUIEvent_t *pxEvent) {
 
 static void uiMediaStateChange(uint16_t event) {
 
+	BYTE power;
+
 	switch (event) {
 	case SDCARD_INSERT:
+//		power = 1;
+//      (*SPISD_Driver.disk_ioctl)(0, CTRL_POWER, &power);
+
 		f_mount(&sdFileSystem, SPISD_Path, 1);
 		break;
 
 	case SDCARD_REMOVE:
 		f_mount(NULL, SPISD_Path, 1);
-		{
-			BYTE poweroff = 0;
-			(*SPISD_Driver.disk_ioctl)(0, CTRL_POWER, &poweroff);
-		}
+
+		power = 0;
+        (*SPISD_Driver.disk_ioctl)(0, CTRL_POWER, &power);
 		break;
 
 	case USBDRIVE_INSERT:

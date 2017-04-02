@@ -127,6 +127,9 @@ int main(void)
 	MX_USART2_UART_Init();
 	MX_USART3_UART_Init();
 
+	MX_FATFS_Init();
+	MX_USB_HOST_Init();
+
 	xTouchSemaphore = xSemaphoreCreateBinary();
 	xSDSemaphore    = xSemaphoreCreateBinary();
 	xComm1Semaphore = xSemaphoreCreateBinary();
@@ -722,13 +725,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 /* StartUITask function */
 void StartUITask(void const * argument) {
-	/* init code for FATFS */
-	MX_FATFS_Init();
-
-	/* init code for USB_HOST */
-	MX_USB_HOST_Init();
-
-	/* USER CODE BEGIN 5 */
 
 	HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_3);
 	osDelay(50);

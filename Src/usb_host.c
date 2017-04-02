@@ -81,12 +81,12 @@ static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id)
 	switch (id) {
 	case HOST_USER_DISCONNECTION:
 		event.ucEventID = USBDRIVE_REMOVE;
-		xQueueSendToBack(xUIEventQueue, &event, 1000);
+		xQueueSendToBackFromISR(xUIEventQueue, &event, pdFALSE);
 		break;
 
 	case HOST_USER_CLASS_ACTIVE:
 		event.ucEventID = USBDRIVE_INSERT;
-		xQueueSendToBack(xUIEventQueue, &event, 1000);
+		xQueueSendToBackFromISR(xUIEventQueue, &event, pdFALSE);
 		break;
 
 	case HOST_USER_CONNECTION:
