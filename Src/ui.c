@@ -78,7 +78,9 @@ volatile float printerZ  = 0;
 volatile float printerE1 = 0;
 volatile float printerE2 = 0;
 
-static uint8_t massStorage = 0;
+static uint8_t massStorage = 1;
+static uint8_t fileOffset = 0;
+static uint8_t fileListEnd = 0;
 
 /*
  * user callback declaration
@@ -119,6 +121,9 @@ static void  uiFilFeedMenu(xUIEvent_t *pxEvent);
 static void uiFileSelectMenu(xUIEvent_t *pxEvent);
 static void uiFileSelectUSB(xUIEvent_t *pxEvent);
 static void uiFileSelectSD(xUIEvent_t *pxEvent);
+static void uiFileSelectOffsetPlus(xUIEvent_t *pxEvent);
+static void uiFileSelectOffsetMinus(xUIEvent_t *pxEvent);
+
 static void  uiFilePrintMenu(xUIEvent_t *pxEvent);
 static void  uiPrintFilChangeMenu(xUIEvent_t *pxEvent);
 static void  uiPrintFilFeedMenu(xUIEvent_t *pxEvent);
@@ -207,8 +212,8 @@ __STATIC_INLINE void uiMenuHandleEventDefault(const xButton_t *pMenu, size_t men
 		case USBDRIVE_REMOVE:
 			uiMediaStateChange(pxEvent->ucEventID);
 
-//            xUIEvent_t uiEvent = { INIT_EVENT };
-//            xQueueSendToFront(xUIEventQueue, &uiEvent, 1000);
+            xUIEvent_t uiEvent = { INIT_EVENT };
+            xQueueSendToFront(xUIEventQueue, &uiEvent, 1000);
 			break;
 
 //        case SHOW_STATUS:
@@ -369,8 +374,6 @@ static void uiMoveMenu (xUIEvent_t *pxEvent) {
         uiDrawMenuItem(&moveMenu[1]);
         uiDrawMenuItem(&moveMenu[2]);
         uiDrawMenuItem(&moveMenu[3]);
-
-        Lcd_Fill_Rect(moveMenu[4].x1, moveMenu[4].y1, moveMenu[4].x2, moveMenu[4].y2, 0);
         uiDrawMenuItem(&moveMenu[4]);
         break;
 
@@ -552,11 +555,7 @@ static void uiTempSliderMenu (xUIEvent_t *pxEvent, eventProcessor_t back, eventP
 
         if (temp != newTargetTemp) {
             newTargetTemp = temp;
-
-            Lcd_Fill_Rect(menu[2].x1, menu[2].y1, menu[2].x2, menu[2].y2, 0);
             uiDrawMenuItem(&menu[2]);
-
-            Lcd_Fill_Rect(menu[3].x1, menu[3].y1, menu[3].x2, menu[3].y2, 0);
             uiDrawMenuItem(&menu[3]);
         }
         break;
@@ -653,11 +652,7 @@ static void uiFilChangeMenu(xUIEvent_t *pxEvent) {
 
         if (temp != newTargetTemp) {
             newTargetTemp = temp;
-
-            Lcd_Fill_Rect(menu[2].x1, menu[2].y1, menu[2].x2, menu[2].y2, 0);
             uiDrawMenuItem(&menu[2]);
-
-            Lcd_Fill_Rect(menu[3].x1, menu[3].y1, menu[3].x2, menu[3].y2, 0);
             uiDrawMenuItem(&menu[3]);
         }
         break;
@@ -699,7 +694,6 @@ static void uiFilPreheatMenu(xUIEvent_t *pxEvent) {
 
     if (pxEvent->ucEventID == REDRAW_EVENT)
     {
-        Lcd_Fill_Rect(menu[2].x1, menu[2].y1, menu[2].x2, menu[2].y2, 0);
         uiDrawMenuItem(&menu[2]);
     }
     else
@@ -734,7 +728,7 @@ static void uiFilFeedMenu(xUIEvent_t *pxEvent) {
 
 static void uiFileSelectMenu(xUIEvent_t *pxEvent) {
 
-	char fname_table[4][30] = { "", "", "", "" };
+	char fname_table[4][26] = { "", "", "", "" };
 
     xButton_t menu[] = {
         { 5,  10, 80, 70, LCD_RED, "Назад", .pOnTouchUp = uiMainMenu },
@@ -744,18 +738,19 @@ static void uiFileSelectMenu(xUIEvent_t *pxEvent) {
         { 5, 120, 235, 159, LCD_BLACK,  fname_table[1], .pOnTouchUp = uiFilePrintMenu },
         { 5, 160, 235, 199, LCD_GRAY20, fname_table[2], .pOnTouchUp = uiFilePrintMenu },
         { 5, 200, 235, 239, LCD_BLACK,  fname_table[3], .pOnTouchUp = uiFilePrintMenu },
-        { 245, 80, 315, 149, LCD_RED, "Вверх" /*, .pOnTouchUp = */ },
-        { 245, 170, 315, 239, LCD_RED, "Вниз" /*, .pOnTouchUp = */ }
+        { 245, 80, 315, 149, LCD_RED, "Вверх", .pOnTouchUp = uiFileSelectOffsetMinus },
+        { 245, 170, 315, 239, LCD_RED, "Вниз", .pOnTouchUp = uiFileSelectOffsetPlus }
     };
 
     DIR dir;
     FRESULT res;
+    int idx = 0;
 
     char cwd[10];
     snprintf(cwd, sizeof(cwd), "%c:/models", massStorage ? '2' : '1');
 
     if (pxEvent->ucEventID == INIT_EVENT)
-        isPrinting = 1;
+        fileOffset = 0;
 
     if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
 
@@ -767,16 +762,19 @@ static void uiFileSelectMenu(xUIEvent_t *pxEvent) {
 
             if ((pFno = pvPortMalloc(sizeof(FILINFO))) != NULL) {
 
-                int idx = 0;
-                while (FR_OK == f_readdir(&dir, pFno) && pFno->fname[0] && idx < 4) {
+                while (FR_OK == f_readdir(&dir, pFno) && pFno->fname[0]) {
 
-                        if (pFno->fattrib & AM_DIR)
-                            continue;
+                    if (pFno->fattrib & AM_DIR)
+                        continue;
 
-                        strncpy(fname_table[idx], pFno->fname, sizeof(fname_table[idx]));
-                        idx++;
+                    if (idx - fileOffset >= 0 && idx < (4 + fileOffset)) {
+                        strncpy(fname_table[idx - fileOffset], pFno->fname, 25);
+                    }
+
+                    idx++;
                 }
 
+                fileListEnd = idx;
                 vPortFree(pFno);
             }
             f_closedir(&dir);
@@ -794,9 +792,24 @@ static void uiFileSelectMenu(xUIEvent_t *pxEvent) {
         uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
 
+static void uiFileSelectOffsetPlus(xUIEvent_t *pxEvent) {
+
+    if (fileOffset + 4 < fileListEnd) fileOffset++;
+
+    uiToggleRedrawParentState(uiFileSelectMenu);
+}
+
+static void uiFileSelectOffsetMinus(xUIEvent_t *pxEvent) {
+
+    if (fileOffset) fileOffset--;
+
+    uiToggleRedrawParentState(uiFileSelectMenu);
+}
+
 static void uiFileSelectUSB(xUIEvent_t *pxEvent) {
 
     massStorage = 1;
+    fileOffset = 0;
 
     if (!usbFileSystem.fs_type)
         f_mount(&usbFileSystem, USBH_Path, 1);
@@ -807,6 +820,7 @@ static void uiFileSelectUSB(xUIEvent_t *pxEvent) {
 static void uiFileSelectSD(xUIEvent_t *pxEvent) {
 
     massStorage = 0;
+    fileOffset = 0;
 
     if (!sdFileSystem.fs_type)
         f_mount(&sdFileSystem, SPISD_Path, 1);
