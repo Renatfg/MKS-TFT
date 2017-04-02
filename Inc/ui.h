@@ -158,5 +158,9 @@ extern volatile float printerE2;
 
 extern volatile uint8_t isPrinting;
 
+extern TimerHandle_t xM105Timer;
+extern TimerHandle_t xM114Timer;
+
+
 #endif /* __UI_H */
 /************************ (C) COPYRIGHT Roman Stepanov *****END OF FILE****/

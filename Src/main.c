@@ -66,13 +66,16 @@ static osThreadId sdcardHandlerHandle;	// sd card insert/remove
 QueueHandle_t xUIEventQueue;
 QueueHandle_t xPCommEventQueue;
 
-#define MAXCOMM1SIZE    0xff                // Biggest string the user will type
-static uint8_t comm1RxBuffer = '\000';      // where we store that one character that just came in
-static uint8_t comm1RxString[MAXCOMM1SIZE]; // where we build our string from characters coming in
-static int comm1RxIndex = 0;                // index for going though comm1RxString
+#define MAXCOMM1SIZE    0xffu                // Biggest string the user will type
+static volatile uint8_t comm1RxBuffer = '\000';      // where we store that one character that just came in
+static volatile uint8_t comm1RxString[MAXCOMM1SIZE + 1]; // where we build our string from characters coming in
+static volatile int comm1RxIndex = 0;                // index for going though comm1RxString
 
 TimerHandle_t xM105Timer;
+TimerHandle_t xM114Timer;
+
 void vM105TimerCallback( TimerHandle_t xTimer );
+void vM114TimerCallback( TimerHandle_t xTimer );
 
 /* USER CODE END PV */
 
@@ -156,6 +159,11 @@ int main(void)
 
 	xM105Timer = xTimerCreate("xM105Timer", 5000, pdTRUE, ( void * ) 0, vM105TimerCallback);
 	if (xM105Timer == NULL) {
+		/* Timer was not created and must not be used. */
+	}
+
+	xM114Timer = xTimerCreate("xM114Timer", 500, pdTRUE, ( void * ) 0, vM114TimerCallback);
+	if (xM114Timer == NULL) {
 		/* Timer was not created and must not be used. */
 	}
 
@@ -611,6 +619,9 @@ void StartComm1Task(void const * argument) {
 			xCommEvent_t event;
 			if (xQueueReceive(xPCommEventQueue, &event, (TickType_t ) 5000)) {
 
+                /* Reset input buffer */
+                comm1RxBuf[0] = 0;
+
                 /* Send to UART */
                 HAL_UART_Transmit(&huart2, event.ucCmd, strlen(event.ucCmd), 1000);
 
@@ -620,19 +631,24 @@ void StartComm1Task(void const * argument) {
 
                     if (strlen(event.ucCmd) > 1 && sscanf(event.ucCmd, "M%d", &gcode)) {
 
+                        int ret = 0;
+
                         switch(gcode) {
                         case 105:
-                            if (sscanf(comm1RxBuf, "ok T:%f /%f B:%f /%f",
-                                    &e1CurTemp, &e1TargetTemp, &bedCurTemp, &bedTargetTemp)) { // M105 response detected
+                            ret = sscanf(comm1RxBuf, "ok T:%f /%f B:%f /%f",
+                                    &e1CurTemp, &e1TargetTemp, &bedCurTemp, &bedTargetTemp);
+
+                            if (ret) { // M105 response detected
                                 xUIEvent_t uiEvent = { REDRAW_EVENT };
                                 xQueueSendToFront(xUIEventQueue, &uiEvent, 1000);
                             }
                             break;
 
                         case 114:
-                            if (sscanf(comm1RxBuf, "X:%f Y:%f Z:%f E:%f",
-                                    &printerX, &printerY, &printerZ, &printerE1)) { // M114 response detected
+                            ret = sscanf(comm1RxBuf, "X:%f Y:%f Z:%f E:%f",
+                                    &printerX, &printerY, &printerZ, &printerE1);
 
+                            if (ret) { // M114 response detected
                                 xUIEvent_t uiEvent = { REDRAW_EVENT };
                                 xQueueSendToFront(xUIEventQueue, &uiEvent, 1000);
                             }
@@ -656,6 +672,12 @@ void vM105TimerCallback( TimerHandle_t xTimer ) {
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 }
 
+void vM114TimerCallback( TimerHandle_t xTimer ) {
+
+    xCommEvent_t event = { "M114\n" };
+    xQueueSendToBack(xPCommEventQueue, &event, 1000);
+}
+
 void StartComm2Task(void const * argument) {
 
 	while (1) {
@@ -676,10 +698,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             comm1RxString[comm1RxIndex] = 0;
             comm1RxIndex = 0;
 
-            strncpy(comm1RxBuf, comm1RxString, MAXSTATSIZE);
-
-            BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-            xSemaphoreGiveFromISR(xComm1Semaphore, &xHigherPriorityTaskWoken);
+            int inpBufPos = strlen(comm1RxBuf), inpBufLen = MAXSTATSIZE - inpBufPos;
+            strncpy(&comm1RxBuf[inpBufPos], comm1RxString, inpBufLen);
+            if (comm1RxString[0] == 'o' && comm1RxString[1] == 'k') {
+                BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+                xSemaphoreGiveFromISR(xComm1Semaphore, &xHigherPriorityTaskWoken);
+            }
         }
         else
         {

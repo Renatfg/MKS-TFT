@@ -94,6 +94,8 @@ static void  uiMoveMenuXAct(xUIEvent_t *pxEvent);
 static void  uiMoveMenuYAct(xUIEvent_t *pxEvent);
 static void  uiMoveMenuZAct(xUIEvent_t *pxEvent);
 static void  uiMoveMenuDistance(xUIEvent_t *pxEvent);
+static void  uiMoveBack(xUIEvent_t *pxEvent);
+static void  uiMoveForward(xUIEvent_t *pxEvent);
 
 static void uiTemperatureMenu(xUIEvent_t *pxEvent);
 static void  uiE1TempSliderMenu(xUIEvent_t *pxEvent);
@@ -375,6 +377,12 @@ static void uiSetupMenu (xUIEvent_t *pxEvent) {
         { 245, 170, 315, 230, LCD_ORANGE, "Движ", .pOnTouchUp = uiMoveMenu }
     };
 
+    switch (pxEvent->ucEventID) {
+    case INIT_EVENT:
+        xTimerStop(xM114Timer, 0);
+        break;
+    }
+
 	uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
 
@@ -407,16 +415,22 @@ static xButton_t moveMenu[] = {
     { 245, 20, 315, 80, LCD_ORANGE, NULL, printDistanceLabel, uiMoveMenuDistance },
     { 20, 100, 300, 130, LCD_BLACK, NULL, printCoordinatesLabel },
     { 5,  170,  80, 230, LCD_RED, "Назад", .pOnTouchUp = uiSetupMenu },
-    { 85,  170, 210, 230, LCD_ORANGE, "Ближе" },
-    { 215, 170, 315, 230, LCD_ORANGE, "Дальше" }
+    { 85,  170, 210, 230, LCD_ORANGE, "Ближе", .pOnTouchUp = uiMoveBack },
+    { 215, 170, 315, 230, LCD_ORANGE, "Дальше", .pOnTouchUp = uiMoveForward }
 };
 
 static void uiMoveMenu (xUIEvent_t *pxEvent) {
 
     switch (pxEvent->ucEventID) {
     case REDRAW_EVENT:
+
+        uiDrawMenuItem(&moveMenu[0]);
+        uiDrawMenuItem(&moveMenu[1]);
+        uiDrawMenuItem(&moveMenu[2]);
+        uiDrawMenuItem(&moveMenu[3]);
+
         Lcd_Fill_Rect(moveMenu[4].x1, moveMenu[4].y1, moveMenu[4].x2, moveMenu[4].y2, 0);
-        uiDrawMenu(moveMenu, 5);
+        uiDrawMenuItem(&moveMenu[4]);
         break;
 
     case INIT_EVENT:
@@ -424,7 +438,11 @@ static void uiMoveMenu (xUIEvent_t *pxEvent) {
         xCommEvent_t event = { "M114\n" };
         xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
-        /* TODO: start coordinates update timer */
+        if(xTimerStart(xM114Timer, 0) != pdPASS) // TODO: only start if connected to printer
+        {
+            /* The timer could not be set into the Active
+            state. */
+        }
     }
 
     default:
@@ -469,6 +487,42 @@ static void uiMoveMenuDistance(xUIEvent_t *pxEvent) {
         default:        moveStep = MOVE_01; break;
     }
 
+    uiToggleRedrawParentState(uiMoveMenu);
+}
+
+void uiMoveBack(xUIEvent_t *pxEvent) {
+
+    uint8_t axis = 'X';
+    if (moveMenu[1].color == LCD_GREEN) axis = 'Y';
+    else if (moveMenu[2].color == LCD_GREEN) axis = 'Z';
+
+    xCommEvent_t event = { "G91\n" };
+    xQueueSendToBack(xPCommEventQueue, &event, 1000);
+
+    if (moveStep == MOVE_01)
+        snprintf(event.ucCmd, sizeof(event.ucCmd), "G1 %c-0.1\n", axis);
+    else
+        snprintf(event.ucCmd, sizeof(event.ucCmd), "G1 %c-%d\n", axis, moveStep);
+
+    xQueueSendToBack(xPCommEventQueue, &event, 1000);
+    uiToggleRedrawParentState(uiMoveMenu);
+}
+
+void uiMoveForward(xUIEvent_t *pxEvent) {
+
+    uint8_t axis = 'X';
+    if (moveMenu[1].color == LCD_GREEN) axis = 'Y';
+    else if (moveMenu[2].color == LCD_GREEN) axis = 'Z';
+
+    xCommEvent_t event = { "G91\n" };
+    xQueueSendToBack(xPCommEventQueue, &event, 1000);
+
+    if (moveStep == MOVE_01)
+        snprintf(event.ucCmd, sizeof(event.ucCmd), "G1 %c0.1\n", axis);
+    else
+        snprintf(event.ucCmd, sizeof(event.ucCmd), "G1 %c%d\n", axis, moveStep);
+
+    xQueueSendToBack(xPCommEventQueue, &event, 1000);
     uiToggleRedrawParentState(uiMoveMenu);
 }
 
