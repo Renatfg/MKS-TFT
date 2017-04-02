@@ -78,6 +78,8 @@ volatile float printerZ  = 0;
 volatile float printerE1 = 0;
 volatile float printerE2 = 0;
 
+static uint8_t massStorage = 0;
+
 /*
  * user callback declaration
  */
@@ -115,6 +117,8 @@ static void  uiFilReplaceMenu(xUIEvent_t *pxEvent);
 static void  uiFilFeedMenu(xUIEvent_t *pxEvent);
 
 static void uiFileSelectMenu(xUIEvent_t *pxEvent);
+static void uiFileSelectUSB(xUIEvent_t *pxEvent);
+static void uiFileSelectSD(xUIEvent_t *pxEvent);
 static void  uiFilePrintMenu(xUIEvent_t *pxEvent);
 static void  uiPrintFilChangeMenu(xUIEvent_t *pxEvent);
 static void  uiPrintFilFeedMenu(xUIEvent_t *pxEvent);
@@ -734,8 +738,8 @@ static void uiFileSelectMenu(xUIEvent_t *pxEvent) {
 
     xButton_t menu[] = {
         { 5,  10, 80, 70, LCD_RED, "Назад", .pOnTouchUp = uiMainMenu },
-        { 90,  10, 190, 70, LCD_DANUBE, "USB" /*, .pOnTouchUp = */ },
-        { 200, 10, 315, 70, LCD_DANUBE, "SD карта"/*, .pOnTouchUp = */ },
+        { 90,  10, 190, 70, LCD_DANUBE, "USB", .pOnTouchUp = uiFileSelectUSB },
+        { 200, 10, 315, 70, LCD_DANUBE, "SD карта", .pOnTouchUp = uiFileSelectSD },
         { 5, 80, 235, 119, LCD_GRAY20,  fname_table[0], .pOnTouchUp = uiFilePrintMenu },
         { 5, 120, 235, 159, LCD_BLACK,  fname_table[1], .pOnTouchUp = uiFilePrintMenu },
         { 5, 160, 235, 199, LCD_GRAY20, fname_table[2], .pOnTouchUp = uiFilePrintMenu },
@@ -746,44 +750,68 @@ static void uiFileSelectMenu(xUIEvent_t *pxEvent) {
 
     DIR dir;
     FRESULT res;
-    const char *cwd;
 
-    if (1) {
-        cwd = "2:/models";
+    char cwd[10];
+    snprintf(cwd, sizeof(cwd), "%c:/models", massStorage ? '2' : '1');
 
-        if (!usbFileSystem.fs_type)
-            res = f_mount(&usbFileSystem, USBH_Path, 1);
-    } else {
-        cwd = "1:/models";
+    if (pxEvent->ucEventID == INIT_EVENT)
+        isPrinting = 1;
 
-        if (!sdFileSystem.fs_type)
-            res = f_mount(&sdFileSystem, SPISD_Path, 1);
+    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+
+        res = f_opendir(&dir, cwd); /* Open the directory */
+        if (res == FR_OK) {
+
+            FILINFO *pFno;
+            FRESULT res = FR_OK;
+
+            if ((pFno = pvPortMalloc(sizeof(FILINFO))) != NULL) {
+
+                int idx = 0;
+                while (FR_OK == f_readdir(&dir, pFno) && pFno->fname[0] && idx < 4) {
+
+                        if (pFno->fattrib & AM_DIR)
+                            continue;
+
+                        strncpy(fname_table[idx], pFno->fname, sizeof(fname_table[idx]));
+                        idx++;
+                }
+
+                vPortFree(pFno);
+            }
+            f_closedir(&dir);
+        }
     }
 
-	res = f_opendir(&dir, cwd); /* Open the directory */
-	if (res == FR_OK) {
+    if (pxEvent->ucEventID == REDRAW_EVENT) {
 
-        FILINFO *pFno;
-        FRESULT res = FR_OK;
+        uiDrawMenuItem(&menu[3]);
+        uiDrawMenuItem(&menu[4]);
+        uiDrawMenuItem(&menu[5]);
+        uiDrawMenuItem(&menu[6]);
+    }
+    else
+        uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
+}
 
-        if ((pFno = pvPortMalloc(sizeof(FILINFO))) != NULL) {
+static void uiFileSelectUSB(xUIEvent_t *pxEvent) {
 
-            int idx = 0;
-            while (FR_OK == f_readdir(&dir, pFno) && pFno->fname[0] && idx < 4) {
+    massStorage = 1;
 
-                    if (pFno->fattrib & AM_DIR)
-                        continue;
+    if (!usbFileSystem.fs_type)
+        f_mount(&usbFileSystem, USBH_Path, 1);
 
-                    strncpy(fname_table[idx], pFno->fname, sizeof(fname_table[idx]));
-                    idx++;
-            }
+    uiToggleRedrawParentState(uiFileSelectMenu);
+}
 
-            vPortFree(pFno);
-        }
-        f_closedir(&dir);
-	}
+static void uiFileSelectSD(xUIEvent_t *pxEvent) {
 
-	uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
+    massStorage = 0;
+
+    if (!sdFileSystem.fs_type)
+        f_mount(&sdFileSystem, SPISD_Path, 1);
+
+    uiToggleRedrawParentState(uiFileSelectMenu);
 }
 
 static void uiFilePrintMenu(xUIEvent_t *pxEvent) {

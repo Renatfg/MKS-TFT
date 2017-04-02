@@ -70,14 +70,14 @@
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 
-/* USER CODE BEGIN Includes */   	      
+/* USER CODE BEGIN Includes */
 /* Section where include file can be added */
-/* USER CODE END Includes */ 
+/* USER CODE END Includes */
 
 /* Ensure stdint is only used by the compiler, and not the assembler. */
 #if defined(__ICCARM__) || defined(__CC_ARM) || defined(__GNUC__)
     #include <stdint.h>
-    #include "mxconstants.h" 
+    #include "mxconstants.h"
     extern uint32_t SystemCoreClock;
 #endif
 
@@ -96,7 +96,7 @@
 #define configUSE_PREEMPTION			1
 #define configUSE_IDLE_HOOK				0
 #define configUSE_TICK_HOOK				0
-#define configCPU_CLOCK_HZ				( SystemCoreClock )	
+#define configCPU_CLOCK_HZ				( SystemCoreClock )
 #define configTICK_RATE_HZ				( ( TickType_t ) 1000 )
 #define configMAX_PRIORITIES			( 7 )
 #define configMINIMAL_STACK_SIZE		( ( unsigned short ) 128 )
@@ -150,9 +150,9 @@ to exclude the API function. */
 /* !!!! configMAX_SYSCALL_INTERRUPT_PRIORITY must not be set to zero !!!!
 See http://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html. */
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY 	( configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )
-	
-#define configASSERT( x ) if( ( x ) == 0 ) { taskDISABLE_INTERRUPTS(); for( ;; ); }	
-	
+
+#define configASSERT( x ) if( ( x ) == 0 ) { taskDISABLE_INTERRUPTS(); for( ;; ); }
+
 #define vPortSVCHandler SVC_Handler
 #define xPortPendSVHandler PendSV_Handler
 
