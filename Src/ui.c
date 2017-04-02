@@ -44,9 +44,6 @@ static FATFS usbFileSystem;		// 2:/
 
 extern TIM_HandleTypeDef htim2;
 
-#define MKS_PIC_SD	"1:/mks_pic"
-#define MKS_PIC_FL	"0:/mks_pic"
-
 #define READY_PRINT	"Магнум"
 
 uint8_t comm1RxBuf[MAXSTATSIZE+1];
@@ -205,6 +202,9 @@ __STATIC_INLINE void uiMenuHandleEventDefault(const xButton_t *pMenu, size_t men
 		case USBDRIVE_INSERT:
 		case USBDRIVE_REMOVE:
 			uiMediaStateChange(pxEvent->ucEventID);
+
+//            xUIEvent_t uiEvent = { INIT_EVENT };
+//            xQueueSendToFront(xUIEventQueue, &uiEvent, 1000);
 			break;
 
 //        case SHOW_STATUS:
@@ -265,82 +265,13 @@ __STATIC_INLINE void uiMenuHandleEventDefault(const xButton_t *pMenu, size_t men
 
 static void uiInitialize (xUIEvent_t *pxEvent) {
 
-	if (INIT_EVENT == pxEvent->ucEventID) {
+    Lcd_Init(LCD_LANDSCAPE_CL);
+    Lcd_Fill_Screen(Lcd_Get_RGB565(0, 0, 0));
 
-		DIR dir;
+    f_mount(&flashFileSystem, SPIFL_Path, 1);  // mount flash
+    f_mount(&sdFileSystem, SPISD_Path, 1);      // mount sd card, mount usb later
 
-		Lcd_Init(LCD_LANDSCAPE_CL);
-		Lcd_Fill_Screen(Lcd_Get_RGB565(0, 0, 0));
-
-		// mount internal flash, format if needed
-		f_mount(&flashFileSystem, SPIFL_Path, 1);  // mount flash
-		f_mount(&sdFileSystem, SPISD_Path, 1);      // mount sd card, mount usb later
-
-		if (sdFileSystem.fs_type && FR_OK == f_opendir(&dir, MKS_PIC_SD)) {
-
-			FRESULT res = FR_OK; /* Open the directory */
-			BYTE *work = pvPortMalloc(_MAX_SS);
-			if (work) {
-
-				f_mkfs ("0:", FM_ANY, 0, work, _MAX_SS);	/* Create a FAT volume */
-				vPortFree(work);
-
-				f_mount(&flashFileSystem, SPIFL_Path, 1);
-			}
-
-			res = f_mkdir(MKS_PIC_FL);
-			if (res == FR_OK || res == FR_EXIST) {
-
-				FILINFO fno;
-				size_t count = 0;
-				while (FR_OK == f_readdir(&dir, &fno) && fno.fname[0]) {
-					if (((fno.fattrib & AM_DIR) == 0) && strstr(fno.fname, ".bin"))
-						count++;
-				}
-
-				f_rewinddir(&dir);
-				if (count) {
-
-					Lcd_Put_Text(56, 80, 16, "Copying files to FLASH...", Lcd_Get_RGB565(0, 63, 0));
-					uiDrawProgressBar(count, Lcd_Get_RGB565(0, 63, 0));
-
-					// TODO: format flash again?
-
-					count = 0;
-					res = FR_OK;
-
-					while (FR_OK == f_readdir(&dir, &fno) && fno.fname[0]) {
-						if (((fno.fattrib & AM_DIR) == 0) && strstr(fno.fname, ".bin")) {
-
-							char src[50];
-							char dst[50];
-
-							Lcd_Fill_Rect(0, 232, 319, 240, 0);
-							snprintf(src, sizeof(src), "%02u", res);
-							Lcd_Put_Text(304, 232, 8, src,
-									res == FR_OK ? Lcd_Get_RGB565(0, 63, 0) : Lcd_Get_RGB565(31, 0, 0));
-
-							snprintf(src, sizeof(src), MKS_PIC_SD "/%s", fno.fname);
-							snprintf(dst, sizeof(dst), MKS_PIC_FL "/%s", fno.fname);
-
-							Lcd_Put_Text(0, 232, 8, src, Lcd_Get_RGB565(0, 63, 0));
-							res = transferFile(src, dst, 1);
-
-							uiUpdateProgressBar(++count);
-						}
-					}
-
-					Lcd_Fill_Screen(Lcd_Get_RGB565(0, 0, 0));
-				}
-			}
-
-			f_closedir(&dir);
-			f_rename(MKS_PIC_SD, MKS_PIC_SD ".old");
-		}
-
-		uiNextState(uiMainMenu);
-	} else
-		uiMenuHandleEventDefault(NULL, 0, pxEvent);
+	uiNextState(uiMainMenu);
 }
 
 static void uiMainMenu (xUIEvent_t *pxEvent) {
@@ -355,6 +286,9 @@ static void uiMainMenu (xUIEvent_t *pxEvent) {
     switch (pxEvent->ucEventID) {
     case INIT_EVENT:
         isPrinting = 0;
+        break;
+
+    default:
         break;
     }
 
@@ -380,6 +314,9 @@ static void uiSetupMenu (xUIEvent_t *pxEvent) {
     switch (pxEvent->ucEventID) {
     case INIT_EVENT:
         xTimerStop(xM114Timer, 0);
+        break;
+
+    default:
         break;
     }
 
@@ -500,9 +437,9 @@ void uiMoveBack(xUIEvent_t *pxEvent) {
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
     if (moveStep == MOVE_01)
-        snprintf(event.ucCmd, sizeof(event.ucCmd), "G1 %c-0.1\n", axis);
+        snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "G1 %c-0.1\n", axis);
     else
-        snprintf(event.ucCmd, sizeof(event.ucCmd), "G1 %c-%d\n", axis, moveStep);
+        snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "G1 %c-%d\n", axis, moveStep);
 
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
     uiToggleRedrawParentState(uiMoveMenu);
@@ -518,9 +455,9 @@ void uiMoveForward(xUIEvent_t *pxEvent) {
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
     if (moveStep == MOVE_01)
-        snprintf(event.ucCmd, sizeof(event.ucCmd), "G1 %c0.1\n", axis);
+        snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "G1 %c0.1\n", axis);
     else
-        snprintf(event.ucCmd, sizeof(event.ucCmd), "G1 %c%d\n", axis, moveStep);
+        snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "G1 %c%d\n", axis, moveStep);
 
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
     uiToggleRedrawParentState(uiMoveMenu);
@@ -646,7 +583,7 @@ static void uiE1TempSliderSetMenu (xUIEvent_t *pxEvent) {
 static void uiE1TempSliderApply(xUIEvent_t *pxEvent) {
 
     xCommEvent_t event;
-    snprintf(event.ucCmd, sizeof(event.ucCmd), "M104 T0 S%3.0f\n", newTargetTemp);
+    snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M104 T0 S%3.0f\n", newTargetTemp);
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
     uiNextState(uiTemperatureMenu);
@@ -666,7 +603,7 @@ static void uiE2TempSliderSetMenu (xUIEvent_t *pxEvent) {
 static void uiE2TempSliderApply(xUIEvent_t *pxEvent) {
 
     xCommEvent_t event;
-    snprintf(event.ucCmd, sizeof(event.ucCmd), "M104 T1 S%3.0f\n", newTargetTemp);
+    snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M104 T1 S%3.0f\n", newTargetTemp);
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
     uiNextState(uiTemperatureMenu);
@@ -686,7 +623,7 @@ static void uiBedTempSliderSetMenu (xUIEvent_t *pxEvent) {
 static void uiBedTempSliderApply(xUIEvent_t *pxEvent) {
 
     xCommEvent_t event;
-    snprintf(event.ucCmd, sizeof(event.ucCmd), "M140 S%3.0f\n", newTargetTemp);
+    snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M140 S%3.0f\n", newTargetTemp);
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
     uiNextState(uiTemperatureMenu);
@@ -793,18 +730,58 @@ static void uiFilFeedMenu(xUIEvent_t *pxEvent) {
 
 static void uiFileSelectMenu(xUIEvent_t *pxEvent) {
 
-    /* STUB */
+	char fname_table[4][30] = { "", "", "", "" };
+
     xButton_t menu[] = {
         { 5,  10, 80, 70, LCD_RED, "Назад", .pOnTouchUp = uiMainMenu },
         { 90,  10, 190, 70, LCD_DANUBE, "USB" /*, .pOnTouchUp = */ },
         { 200, 10, 315, 70, LCD_DANUBE, "SD карта"/*, .pOnTouchUp = */ },
-        { 5, 80, 235, 119, LCD_GRAY20, "Some file.gcode", .pOnTouchUp = uiFilePrintMenu },
-        { 5, 120, 235, 159, LCD_BLACK, "File_2.gcode", .pOnTouchUp = uiFilePrintMenu },
-        { 5, 160, 235, 199, LCD_GRAY20, "Файл 7.gcode", .pOnTouchUp = uiFilePrintMenu },
-        { 5, 200, 235, 239, LCD_BLACK, "File_long_long_name.g...", .pOnTouchUp = uiFilePrintMenu },
+        { 5, 80, 235, 119, LCD_GRAY20,  fname_table[0], .pOnTouchUp = uiFilePrintMenu },
+        { 5, 120, 235, 159, LCD_BLACK,  fname_table[1], .pOnTouchUp = uiFilePrintMenu },
+        { 5, 160, 235, 199, LCD_GRAY20, fname_table[2], .pOnTouchUp = uiFilePrintMenu },
+        { 5, 200, 235, 239, LCD_BLACK,  fname_table[3], .pOnTouchUp = uiFilePrintMenu },
         { 245, 80, 315, 149, LCD_RED, "Вверх" /*, .pOnTouchUp = */ },
         { 245, 170, 315, 239, LCD_RED, "Вниз" /*, .pOnTouchUp = */ }
     };
+
+    DIR dir;
+    FRESULT res;
+    const char *cwd;
+
+    if (1) {
+        cwd = "2:/models";
+
+        if (!usbFileSystem.fs_type)
+            res = f_mount(&usbFileSystem, USBH_Path, 1);
+    } else {
+        cwd = "1:/models";
+
+        if (!sdFileSystem.fs_type)
+            res = f_mount(&sdFileSystem, SPISD_Path, 1);
+    }
+
+	res = f_opendir(&dir, cwd); /* Open the directory */
+	if (res == FR_OK) {
+
+        FILINFO *pFno;
+        FRESULT res = FR_OK;
+
+        if ((pFno = pvPortMalloc(sizeof(FILINFO))) != NULL) {
+
+            int idx = 0;
+            while (FR_OK == f_readdir(&dir, pFno) && pFno->fname[0] && idx < 4) {
+
+                    if (pFno->fattrib & AM_DIR)
+                        continue;
+
+                    strncpy(fname_table[idx], pFno->fname, sizeof(fname_table[idx]));
+                    idx++;
+            }
+
+            vPortFree(pFno);
+        }
+        f_closedir(&dir);
+	}
 
 	uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }

@@ -336,7 +336,7 @@ __STATIC_INLINE char _R( const char c ) {
     return c;
 }
 
-void Lcd_Put_Text(uint16_t x, uint16_t y, uint8_t height, char *text, uint16_t color) {
+void Lcd_Put_Text(uint16_t x, uint16_t y, uint8_t height, const char *text, uint16_t color) {
 
 	uint8_t *bitmap;
 

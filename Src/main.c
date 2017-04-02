@@ -623,19 +623,19 @@ void StartComm1Task(void const * argument) {
                 comm1RxBuf[0] = 0;
 
                 /* Send to UART */
-                HAL_UART_Transmit(&huart2, event.ucCmd, strlen(event.ucCmd), 1000);
+                HAL_UART_Transmit(&huart2, event.ucCmd, strlen((char *)event.ucCmd), 1000);
 
                 if(xSemaphoreTake(xComm1Semaphore, 5000 /* FIXME: receive timeout */ ) == pdTRUE ) {
 
                     int gcode = 0;
 
-                    if (strlen(event.ucCmd) > 1 && sscanf(event.ucCmd, "M%d", &gcode)) {
+                    if (strlen((char *)event.ucCmd) > 1 && sscanf((char *)event.ucCmd, "M%d", &gcode)) {
 
                         int ret = 0;
 
                         switch(gcode) {
                         case 105:
-                            ret = sscanf(comm1RxBuf, "ok T:%f /%f B:%f /%f",
+                            ret = sscanf((char *)comm1RxBuf, "ok T:%f /%f B:%f /%f",
                                     &e1CurTemp, &e1TargetTemp, &bedCurTemp, &bedTargetTemp);
 
                             if (ret) { // M105 response detected
@@ -645,7 +645,7 @@ void StartComm1Task(void const * argument) {
                             break;
 
                         case 114:
-                            ret = sscanf(comm1RxBuf, "X:%f Y:%f Z:%f E:%f",
+                            ret = sscanf((char *)comm1RxBuf, "X:%f Y:%f Z:%f E:%f",
                                     &printerX, &printerY, &printerZ, &printerE1);
 
                             if (ret) { // M114 response detected
@@ -698,8 +698,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             comm1RxString[comm1RxIndex] = 0;
             comm1RxIndex = 0;
 
-            int inpBufPos = strlen(comm1RxBuf), inpBufLen = MAXSTATSIZE - inpBufPos;
-            strncpy(&comm1RxBuf[inpBufPos], comm1RxString, inpBufLen);
+            int inpBufPos = strlen((char *)comm1RxBuf), inpBufLen = MAXSTATSIZE - inpBufPos;
+            strncpy((char *)&comm1RxBuf[inpBufPos], comm1RxString, inpBufLen);
             if (comm1RxString[0] == 'o' && comm1RxString[1] == 'k') {
                 BaseType_t xHigherPriorityTaskWoken = pdFALSE;
                 xSemaphoreGiveFromISR(xComm1Semaphore, &xHigherPriorityTaskWoken);

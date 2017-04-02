@@ -98,7 +98,7 @@ typedef enum {
 
 void Lcd_Render_Bitmap_8xN(uint16_t x, uint16_t y, uint8_t height, uint8_t *bitmap,
 		uint16_t color);
-void Lcd_Put_Text(uint16_t x, uint16_t y, uint8_t height, char *text, uint16_t color);
+void Lcd_Put_Text(uint16_t x, uint16_t y, uint8_t height, const char *text, uint16_t color);
 
 /**
   * @}
