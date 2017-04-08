@@ -73,9 +73,10 @@ static volatile int comm1RxIndex = 0;                // index for going though c
 
 TimerHandle_t xM105Timer;
 TimerHandle_t xM114Timer;
+TimerHandle_t xIdleTimer;
 
-void vM105TimerCallback( TimerHandle_t xTimer );
-void vM114TimerCallback( TimerHandle_t xTimer );
+static void vM105TimerCallback( TimerHandle_t xTimer );
+static void vM114TimerCallback( TimerHandle_t xTimer );
 
 /* USER CODE END PV */
 
@@ -167,6 +168,11 @@ int main(void)
 
 	xM114Timer = xTimerCreate("xM114Timer", 500, pdTRUE, ( void * ) 0, vM114TimerCallback);
 	if (xM114Timer == NULL) {
+		/* Timer was not created and must not be used. */
+	}
+
+	xIdleTimer = xTimerCreate("xIdleTimer", 60000, pdTRUE, ( void * ) 0, vIdleTimerCallback);
+	if (xIdleTimer == NULL) {
 		/* Timer was not created and must not be used. */
 	}
 

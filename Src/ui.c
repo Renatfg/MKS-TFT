@@ -216,7 +216,7 @@ __STATIC_INLINE void uiMenuHandleEventDefault(const xButton_t *pMenu, size_t men
 		case USBDRIVE_REMOVE:
 			uiMediaStateChange(pxEvent->ucEventID);
 
-            xUIEvent_t uiEvent = { INIT_EVENT };
+            xUIEvent_t uiEvent = { REDRAW_EVENT };
             xQueueSendToFront(xUIEventQueue, &uiEvent, 1000);
 			break;
 
@@ -258,6 +258,8 @@ __STATIC_INLINE void uiMenuHandleEventDefault(const xButton_t *pMenu, size_t men
                             uiNextState(pMenu[s].pOnTouchDown);
                         }
                         if (TOUCH_UP_EVENT == pxEvent->ucEventID && pMenu[s].pOnTouchUp) {
+
+                            uiShortBeep();
                             uiNextState(pMenu[s].pOnTouchUp);
                         }
                         break;
@@ -281,8 +283,10 @@ static void uiInitialize (xUIEvent_t *pxEvent) {
     Lcd_Init(LCD_LANDSCAPE_CL);
     Lcd_Fill_Screen(Lcd_Get_RGB565(0, 0, 0));
 
+    osDelay(500);
+
     f_mount(&flashFileSystem, SPIFL_Path, 1);  // mount flash
-    f_mount(&sdFileSystem, SPISD_Path, 1);      // mount sd card, mount usb later
+//  f_mount(&sdFileSystem, SPISD_Path, 1);      // mount sd card, mount usb later
 
 	uiNextState(uiMainMenu);
 }
@@ -298,7 +302,12 @@ static void uiMainMenu (xUIEvent_t *pxEvent) {
 
     switch (pxEvent->ucEventID) {
     case INIT_EVENT:
+        xTimerStop(xIdleTimer, 10);
         isPrinting = 0;
+        break;
+
+    case REDRAW_EVENT:  // usb mounted bug workaround
+        uiDrawMenu(menu, sizeof(menu)/sizeof(xButton_t));
         break;
 
     default:
@@ -306,6 +315,12 @@ static void uiMainMenu (xUIEvent_t *pxEvent) {
     }
 
 	uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
+}
+
+void vIdleTimerCallback( TimerHandle_t xTimer ) {
+
+    uiShortBeep();
+	uiNextState(uiMainMenu);
 }
 
 static char currentIPLabel[30] = "Текущий IP: 192.168.0.253";
@@ -324,9 +339,13 @@ static void uiSetupMenu (xUIEvent_t *pxEvent) {
         { 245, 170, 315, 230, LCD_ORANGE, "Движ", .pOnTouchUp = uiMoveMenu }
     };
 
+    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+        xTimerReset(xIdleTimer, 10);
+    }
+
     switch (pxEvent->ucEventID) {
     case INIT_EVENT:
-        xTimerStop(xM114Timer, 0);
+        xTimerStop(xM114Timer, 10);
         break;
 
     default:
@@ -371,6 +390,10 @@ static xButton_t moveMenu[] = {
 
 static void uiMoveMenu (xUIEvent_t *pxEvent) {
 
+    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+        xTimerReset(xIdleTimer, 10);
+    }
+
     switch (pxEvent->ucEventID) {
     case REDRAW_EVENT:
 
@@ -386,7 +409,8 @@ static void uiMoveMenu (xUIEvent_t *pxEvent) {
         xCommEvent_t event = { "M114\n" };
         xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
-        if(xTimerStart(xM114Timer, 0) != pdPASS) // TODO: only start if connected to printer
+        xTimerReset(xIdleTimer, 10);
+        if(xTimerStart(xM114Timer, 10) != pdPASS) // TODO: only start if connected to printer
         {
             /* The timer could not be set into the Active
             state. */
@@ -431,7 +455,7 @@ static void uiMoveMenuDistance(xUIEvent_t *pxEvent) {
         case MOVE_01:   moveStep = MOVE_1;   break;
         case MOVE_1:    moveStep = MOVE_5;   break;
         case MOVE_5:    moveStep = MOVE_10;  break;
-        case MOVE_10:   moveStep = MOVE_100; break;
+//      case MOVE_10:   moveStep = MOVE_100; break;
         default:        moveStep = MOVE_01; break;
     }
 
@@ -522,6 +546,10 @@ static void uiTemperatureMenu (xUIEvent_t *pxEvent) {
         { 205, 170, 315, 230, LCD_DANUBE, "Преднагрев ABS" }
     };
 
+    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+        xTimerReset(xIdleTimer, 10);
+    }
+
     if (pxEvent->ucEventID == REDRAW_EVENT)
     {
         uiDrawMenu(menu, 4);
@@ -563,6 +591,10 @@ static void uiTempSliderMenu (
     };
 
     uint16_t temp = 0;
+
+    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+        xTimerReset(xIdleTimer, 10);
+    }
 
     switch (pxEvent->ucEventID) {
     case REDRAW_EVENT:
@@ -691,6 +723,10 @@ static void uiFilChangeMenu(xUIEvent_t *pxEvent) {
 
     uint16_t temp = 0;
 
+    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+        xTimerStop(xIdleTimer, 10);
+    }
+
     switch (pxEvent->ucEventID) {
     case REDRAW_EVENT:
         temp = MAX_EXTRUDER_TEMP * touchX / 320;
@@ -737,6 +773,10 @@ static void uiFilPreheatMenu(xUIEvent_t *pxEvent) {
         { 170, 170, 300, 230, LCD_DANUBE, "Отменить", .pOnTouchUp = uiSetupMenu },
     };
 
+    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+        xTimerStop(xIdleTimer, 10);
+    }
+
     if (pxEvent->ucEventID == REDRAW_EVENT)
     {
         uiDrawMenuItem(&menu[2]);
@@ -755,6 +795,10 @@ static void uiFilReplaceMenu(xUIEvent_t *pxEvent) {
         { 170, 170, 300, 230, LCD_DANUBE, "Отменить", .pOnTouchUp = uiSetupMenu },
     };
 
+    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+        xTimerStop(xIdleTimer, 10);
+    }
+
     uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
 
@@ -767,6 +811,10 @@ static void uiFilFeedMenu(xUIEvent_t *pxEvent) {
         { 0, 132, 320, 148, LCD_BLACK, "подачи и охлаждения экструдера." },
         { 100, 170, 230, 230, LCD_DANUBE, "Завершить", .pOnTouchUp = uiSetupMenu },
     };
+
+    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+        xTimerStop(xIdleTimer, 10);
+    }
 
     uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
@@ -799,6 +847,7 @@ static void uiFileSelectMenu(xUIEvent_t *pxEvent) {
 
     if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
 
+        xTimerReset(xIdleTimer, 10);
         res = f_opendir(&dir, cwd); /* Open the directory */
         if (res == FR_OK) {
 
@@ -885,6 +934,10 @@ static void uiFilePrintMenu(xUIEvent_t *pxEvent) {
         { 215, 170, 315, 230, LCD_RED, "Отменить", .pOnTouchUp = uiMainMenu }
     };
 
+    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+        xTimerStop(xIdleTimer, 10);
+    }
+
     switch (pxEvent->ucEventID) {
     case REDRAW_EVENT:
         uiDrawMenu(menu, 3);
@@ -921,6 +974,10 @@ static void uiPrintFilFeedMenu(xUIEvent_t *pxEvent) {
         { 0, 132, 320, 148, LCD_BLACK, "к печати." },
         { 100, 170, 230, 230, LCD_DANUBE, "Продолжить", .pOnTouchUp = uiFilePrintMenu  },
     };
+
+    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+        xTimerStop(xIdleTimer, 10);
+    }
 
     uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
@@ -968,9 +1025,6 @@ static void uiMediaStateChange(uint16_t event) {
 
 	switch (event) {
 	case SDCARD_INSERT:
-//		power = 1;
-//      (*SPISD_Driver.disk_ioctl)(0, CTRL_POWER, &power);
-
 		f_mount(&sdFileSystem, SPISD_Path, 1);
 		break;
 

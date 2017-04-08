@@ -84,7 +84,7 @@ typedef enum {
 	MOVE_1      = 1,
 	MOVE_5      = 5,
 	MOVE_10     = 10,
-	MOVE_100    = 100
+//	MOVE_100    = 100
 } xMoveStep_t;
 extern uint16_t moveStep;
 
@@ -160,7 +160,9 @@ extern volatile uint8_t isPrinting;
 
 extern TimerHandle_t xM105Timer;
 extern TimerHandle_t xM114Timer;
+extern TimerHandle_t xIdleTimer;
 
+void vIdleTimerCallback( TimerHandle_t xTimer );
 
 #endif /* __UI_H */
 /************************ (C) COPYRIGHT Roman Stepanov *****END OF FILE****/
