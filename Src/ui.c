@@ -58,7 +58,8 @@ uint8_t extrudeDistance = DISTANCE_1;
 uint8_t extrudeSelSpeed = SPEED_SLOW;
 uint8_t selectedFs = FS_SD;
 
-#define MAX_EXTRUDER_TEMP   275
+#define MAX_EXTRUDER_TEMP   270
+#define MAX_HEATBED_TEMP    115
 
 volatile float e1TargetTemp  = 0;
 volatile float e2TargetTemp  = 0;
@@ -102,14 +103,17 @@ static void uiTemperatureMenu(xUIEvent_t *pxEvent);
 static void  uiE1TempSliderMenu(xUIEvent_t *pxEvent);
 static void   uiE1TempSliderSetMenu(xUIEvent_t *pxEvent);
 static void    uiE1TempSliderApply(xUIEvent_t *pxEvent);
+static void    uiE1TempSliderCancel(xUIEvent_t *pxEvent);
 
 static void  uiE2TempSliderMenu(xUIEvent_t *pxEvent);
 static void   uiE2TempSliderSetMenu(xUIEvent_t *pxEvent);
 static void    uiE2TempSliderApply(xUIEvent_t *pxEvent);
+static void    uiE2TempSliderCancel(xUIEvent_t *pxEvent);
 
 static void  uiBedTempSliderMenu(xUIEvent_t *pxEvent);
 static void   uiBedTempSliderSetMenu(xUIEvent_t *pxEvent);
 static void    uiBedTempSliderApply(xUIEvent_t *pxEvent);
+static void    uiBedTempSliderCancel(xUIEvent_t *pxEvent);
 
 static void uiFilChangeMenu(xUIEvent_t *pxEvent);
 static void  uiFilChangeTempSliderSetMenu(xUIEvent_t *pxEvent);
@@ -471,7 +475,11 @@ void uiMoveForward(xUIEvent_t *pxEvent) {
 }
 
 static void printNewTempSlider(uint16_t x, uint16_t y) {
-    uiDrawSlider(y, (int) newTargetTemp, MAX_EXTRUDER_TEMP, LCD_DANUBE, LCD_RED);
+
+    if (0xffu == uiSelExtruder)
+        uiDrawSlider(y, (int) newTargetTemp, MAX_HEATBED_TEMP, LCD_DANUBE, LCD_RED);
+    else
+        uiDrawSlider(y, (int) newTargetTemp, MAX_EXTRUDER_TEMP, LCD_DANUBE, LCD_RED);
 }
 
 static void printE1TempLabel(uint16_t x, uint16_t y) {
@@ -534,8 +542,13 @@ static void printHeatDevLabel(uint16_t x, uint16_t y) {
     Lcd_Put_Text(x - (strlen(tempLabel) << 2), y - 8, 16, tempLabel, 0xffffu);
 }
 
-static void uiTempSliderMenu (xUIEvent_t *pxEvent, eventProcessor_t back, eventProcessor_t forward,
-                              eventProcessor_t sliderSet) {
+static void uiTempSliderMenu (
+        xUIEvent_t *pxEvent,
+        eventProcessor_t back,
+        eventProcessor_t forward,
+        eventProcessor_t sliderSet,
+        uint8_t canCancel,
+        eventProcessor_t cancel) {
 
     xButton_t menu[] = {
         { 20, 30, 300, 69, LCD_BLACK, NULL, printHeatDevLabel },
@@ -544,6 +557,8 @@ static void uiTempSliderMenu (xUIEvent_t *pxEvent, eventProcessor_t back, eventP
         { 5, 100, 315, 150, LCD_BLACK, NULL, printNewTempSlider,
                 .pOnTouchDown = sliderSet },
         { 5,  170,  80, 230, LCD_RED, "Назад", .pOnTouchUp = back },
+        { 85, 170,  210, 230, (canCancel ? LCD_DANUBE : LCD_BLACK),
+                (canCancel ? "Выключить" : NULL), .pOnTouchUp = cancel },
         { 215, 170, 315, 230, LCD_ORANGE, "Установить", .pOnTouchUp = forward }
     };
 
@@ -551,7 +566,10 @@ static void uiTempSliderMenu (xUIEvent_t *pxEvent, eventProcessor_t back, eventP
 
     switch (pxEvent->ucEventID) {
     case REDRAW_EVENT:
-        temp = MAX_EXTRUDER_TEMP * touchX / 320;
+        if (0xffu == uiSelExtruder)
+            temp = MAX_HEATBED_TEMP * (touchX - 5) / 310;
+        else
+            temp = MAX_EXTRUDER_TEMP * (touchX - 5) / 310;
 
         if (temp != newTargetTemp) {
             newTargetTemp = temp;
@@ -575,7 +593,7 @@ static void uiTempSliderMenu (xUIEvent_t *pxEvent, eventProcessor_t back, eventP
 static void uiE1TempSliderMenu (xUIEvent_t *pxEvent) {
 
     uiSelExtruder = 1;
-    uiTempSliderMenu(pxEvent, uiTemperatureMenu, uiE1TempSliderApply, uiE1TempSliderSetMenu);
+    uiTempSliderMenu(pxEvent, uiTemperatureMenu, uiE1TempSliderApply, uiE1TempSliderSetMenu, 1, uiE1TempSliderCancel);
 }
 
 static void uiE1TempSliderSetMenu (xUIEvent_t *pxEvent) {
@@ -592,10 +610,19 @@ static void uiE1TempSliderApply(xUIEvent_t *pxEvent) {
     uiNextState(uiTemperatureMenu);
 }
 
+static void uiE1TempSliderCancel(xUIEvent_t *pxEvent) {
+
+    xCommEvent_t event;
+    snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M104 T0 S0\n");
+    xQueueSendToBack(xPCommEventQueue, &event, 1000);
+
+    uiNextState(uiTemperatureMenu);
+}
+
 static void uiE2TempSliderMenu (xUIEvent_t *pxEvent) {
 
     uiSelExtruder = 2;
-    uiTempSliderMenu(pxEvent, uiTemperatureMenu, uiE2TempSliderApply, uiE2TempSliderSetMenu);
+    uiTempSliderMenu(pxEvent, uiTemperatureMenu, uiE2TempSliderApply, uiE2TempSliderSetMenu, 1, uiE2TempSliderCancel);
 }
 
 static void uiE2TempSliderSetMenu (xUIEvent_t *pxEvent) {
@@ -612,10 +639,19 @@ static void uiE2TempSliderApply(xUIEvent_t *pxEvent) {
     uiNextState(uiTemperatureMenu);
 }
 
+static void uiE2TempSliderCancel(xUIEvent_t *pxEvent) {
+
+    xCommEvent_t event;
+    snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M104 T1 S0\n");
+    xQueueSendToBack(xPCommEventQueue, &event, 1000);
+
+    uiNextState(uiTemperatureMenu);
+}
+
 static void uiBedTempSliderMenu (xUIEvent_t *pxEvent) {
 
     uiSelExtruder = 0xffu;
-    uiTempSliderMenu(pxEvent, uiTemperatureMenu, uiBedTempSliderApply, uiBedTempSliderSetMenu);
+    uiTempSliderMenu(pxEvent, uiTemperatureMenu, uiBedTempSliderApply, uiBedTempSliderSetMenu, 1, uiBedTempSliderCancel);
 }
 
 static void uiBedTempSliderSetMenu (xUIEvent_t *pxEvent) {
@@ -627,6 +663,15 @@ static void uiBedTempSliderApply(xUIEvent_t *pxEvent) {
 
     xCommEvent_t event;
     snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M140 S%3.0f\n", newTargetTemp);
+    xQueueSendToBack(xPCommEventQueue, &event, 1000);
+
+    uiNextState(uiTemperatureMenu);
+}
+
+static void uiBedTempSliderCancel(xUIEvent_t *pxEvent) {
+
+    xCommEvent_t event;
+    snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M140 S0\n");
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
     uiNextState(uiTemperatureMenu);
@@ -883,7 +928,7 @@ static void uiPrintFilFeedMenu(xUIEvent_t *pxEvent) {
 static void uiE1PrintSliderMenu (xUIEvent_t *pxEvent) {
 
     uiSelExtruder = 1;
-    uiTempSliderMenu(pxEvent, uiFilePrintMenu, uiFilePrintMenu, uiE1PrintSliderSetMenu);
+    uiTempSliderMenu(pxEvent, uiFilePrintMenu, uiFilePrintMenu, uiE1PrintSliderSetMenu, 0, NULL);
 }
 
 static void uiE1PrintSliderSetMenu(xUIEvent_t *pxEvent) {
@@ -894,7 +939,7 @@ static void uiE1PrintSliderSetMenu(xUIEvent_t *pxEvent) {
 static void uiE2PrintSliderMenu (xUIEvent_t *pxEvent) {
 
     uiSelExtruder = 2;
-    uiTempSliderMenu(pxEvent, uiFilePrintMenu, uiFilePrintMenu, uiE2PrintSliderSetMenu);
+    uiTempSliderMenu(pxEvent, uiFilePrintMenu, uiFilePrintMenu, uiE2PrintSliderSetMenu, 0, NULL);
 }
 
 static void uiE2PrintSliderSetMenu (xUIEvent_t *pxEvent) {
@@ -905,7 +950,7 @@ static void uiE2PrintSliderSetMenu (xUIEvent_t *pxEvent) {
 static void uiBedPrintSliderMenu (xUIEvent_t *pxEvent) {
 
     uiSelExtruder = 0xffu;
-    uiTempSliderMenu(pxEvent, uiFilePrintMenu, uiFilePrintMenu, uiBedPrintSliderSetMenu);
+    uiTempSliderMenu(pxEvent, uiFilePrintMenu, uiFilePrintMenu, uiBedPrintSliderSetMenu, 0, NULL);
 }
 
 static void uiBedPrintSliderSetMenu (xUIEvent_t *pxEvent) {
@@ -948,14 +993,14 @@ static void uiMediaStateChange(uint16_t event) {
 
 static void uiDrawSlider(uint16_t y, uint32_t pos, uint32_t scale, uint16_t color1, uint16_t color2) {
 
-	uint16_t x0 = 10 + 280 * pos / scale, x1 = x0 + 20;
+	uint16_t x0 = 15 + 270 * pos / scale, x1 = x0 + 20;
 
-    Lcd_Line(10 - 2, y - 17, 310 + 2, y - 17, color1);
-    Lcd_Line(310 + 2, y - 17, 310 + 2, y + 17, color1);
-    Lcd_Line(10 - 2, y - 17, 10 - 2, y + 17, color1);
-    Lcd_Line(10 - 2, y + 17, 310 + 2, y + 17, color1);
+    Lcd_Line(15 - 2, y - 17, 305 + 2, y - 17, color1);
+    Lcd_Line(305 + 2, y - 17, 305 + 2, y + 17, color1);
+    Lcd_Line(15 - 2, y - 17, 15 - 2, y + 17, color1);
+    Lcd_Line(15 - 2, y + 17, 305 + 2, y + 17, color1);
 
-    Lcd_Fill_Rect(10, y - 15, x0, y + 15, color1);
+    Lcd_Fill_Rect(15, y - 15, x0, y + 15, color1);
    	Lcd_Fill_Rect(x0, y - 20, x1, y + 20, color2);
 }
 

@@ -391,35 +391,28 @@ uint8_t Lcd_Orientation() {
 void Lcd_Translate_Touch_Pos(uint16_t raw_x, uint16_t raw_y, uint16_t *x,
 		uint16_t *y) {
 
-	if (raw_x < TOUCH_X_LOW)  raw_x = TOUCH_X_LOW;
-	if (raw_x > TOUCH_X_HIGH) raw_x = TOUCH_X_HIGH;
-	if (raw_y < TOUCH_Y_LOW)  raw_y = TOUCH_Y_LOW;
-	if (raw_y > TOUCH_Y_HIGH) raw_y = TOUCH_Y_HIGH;
-
-	raw_x -= TOUCH_X_LOW;
-	raw_y -= TOUCH_Y_LOW;
+//	if (raw_x < TOUCH_X_LOW)  raw_x = TOUCH_X_LOW;
+//	if (raw_x > TOUCH_X_HIGH) raw_x = TOUCH_X_HIGH;
+//	if (raw_y < TOUCH_Y_LOW)  raw_y = TOUCH_Y_LOW;
+//	if (raw_y > TOUCH_Y_HIGH) raw_y = TOUCH_Y_HIGH;
 
 	switch (lcd_orientation) {
 	case LCD_LANDSCAPE_CL:
-		*x = 320 - (raw_x * 320 / (TOUCH_X_HIGH - TOUCH_X_LOW));
-		if (*x > 320) *x = 1;
-		*y = raw_y * 240 / (TOUCH_Y_HIGH - TOUCH_Y_LOW);
+        *x = 320 - (raw_x - TOUCH_X_LOW) * 320 / (TOUCH_X_HIGH - TOUCH_X_LOW);
+        *y = (raw_y - TOUCH_Y_LOW) * 240 / (TOUCH_Y_HIGH - TOUCH_Y_LOW);
 		break;
 	case LCD_LANDSCAPE_CR:
-		*x = raw_x * 320 / (TOUCH_X_HIGH - TOUCH_X_LOW);
-		*y = 240 - (raw_y * 240 / (TOUCH_Y_HIGH - TOUCH_Y_LOW));
-		if (*y > 240) *y = 1;
+       *x = (raw_x - TOUCH_X_LOW) * 320 / (TOUCH_X_HIGH - TOUCH_X_LOW);
+        *y = 240 - (raw_y - TOUCH_Y_LOW) * 240 / (TOUCH_Y_HIGH - TOUCH_Y_LOW);
 		break;
 	case LCD_PORTRAIT_CDN:
-		*x = raw_y * 240 / (TOUCH_Y_HIGH - TOUCH_Y_LOW);
-		*y = raw_x * 320 / (TOUCH_X_HIGH - TOUCH_X_LOW);
+        *y = (raw_x - TOUCH_X_LOW) * 320 / (TOUCH_X_HIGH - TOUCH_X_LOW);
+        *x = (raw_y - TOUCH_Y_LOW) * 240 / (TOUCH_Y_HIGH - TOUCH_Y_LOW);
 		break;
 	case LCD_PORTRAIT_CUP:
 	default:
-		*x = 240 - (raw_y * 240 / (TOUCH_Y_HIGH - TOUCH_Y_LOW));
-		if (*x > 240) *x = 1;
-		*y = 320 - (raw_x * 320 / (TOUCH_X_HIGH - TOUCH_X_LOW));
-		if (*y > 320) *y = 1;
+        *y = 320 - (raw_x - TOUCH_X_LOW) * 320 / (TOUCH_X_HIGH - TOUCH_X_LOW);
+        *x = 240 - (raw_y - TOUCH_Y_LOW) * 240 / (TOUCH_Y_HIGH - TOUCH_Y_LOW);
 		break;
 	}
 }

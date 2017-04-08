@@ -505,6 +505,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	case TOUCH_DI_Pin:
 		xSemaphoreGiveFromISR(xTouchSemaphore, &xHigherPriorityTaskWoken);
 		break;
+
 	case SDCARD_DETECT_Pin:
 		xSemaphoreGiveFromISR(xSDSemaphore, &xHigherPriorityTaskWoken);
 		break;
