@@ -303,6 +303,7 @@ static void uiMainMenu (xUIEvent_t *pxEvent) {
     switch (pxEvent->ucEventID) {
     case INIT_EVENT:
         xTimerStop(xIdleTimer, 10);
+        xTimerStop(xM114Timer, 10);
         isPrinting = 0;
         break;
 
@@ -339,12 +340,9 @@ static void uiSetupMenu (xUIEvent_t *pxEvent) {
         { 245, 170, 315, 230, LCD_ORANGE, "Движ", .pOnTouchUp = uiMoveMenu }
     };
 
-    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
-        xTimerReset(xIdleTimer, 10);
-    }
-
     switch (pxEvent->ucEventID) {
     case INIT_EVENT:
+        xTimerReset(xIdleTimer, 10);
         xTimerStop(xM114Timer, 10);
         break;
 
@@ -390,10 +388,6 @@ static xButton_t moveMenu[] = {
 
 static void uiMoveMenu (xUIEvent_t *pxEvent) {
 
-    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
-        xTimerReset(xIdleTimer, 10);
-    }
-
     switch (pxEvent->ucEventID) {
     case REDRAW_EVENT:
 
@@ -410,6 +404,10 @@ static void uiMoveMenu (xUIEvent_t *pxEvent) {
         xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
         xTimerReset(xIdleTimer, 10);
+        if( xTimerIsTimerActive( xIdleTimer ) == pdFALSE ) {
+            xTimerReset(xIdleTimer, 10);
+
+        }
         if(xTimerStart(xM114Timer, 10) != pdPASS) // TODO: only start if connected to printer
         {
             /* The timer could not be set into the Active
@@ -428,6 +426,7 @@ static void uiMoveMenuXAct(xUIEvent_t *pxEvent) {
     moveMenu[1].color = LCD_ORANGE;
     moveMenu[2].color = LCD_ORANGE;
 
+    xTimerReset(xIdleTimer, 10);
     uiToggleRedrawParentState(uiMoveMenu);
 }
 
@@ -437,6 +436,7 @@ static void uiMoveMenuYAct(xUIEvent_t *pxEvent) {
     moveMenu[0].color = LCD_ORANGE;
     moveMenu[2].color = LCD_ORANGE;
 
+    xTimerReset(xIdleTimer, 10);
     uiToggleRedrawParentState(uiMoveMenu);
 }
 
@@ -446,6 +446,7 @@ static void uiMoveMenuZAct(xUIEvent_t *pxEvent) {
     moveMenu[0].color = LCD_ORANGE;
     moveMenu[1].color = LCD_ORANGE;
 
+    xTimerReset(xIdleTimer, 10);
     uiToggleRedrawParentState(uiMoveMenu);
 }
 
@@ -459,6 +460,8 @@ static void uiMoveMenuDistance(xUIEvent_t *pxEvent) {
         default:        moveStep = MOVE_01; break;
     }
 
+
+    xTimerReset(xIdleTimer, 10);
     uiToggleRedrawParentState(uiMoveMenu);
 }
 
@@ -476,6 +479,7 @@ void uiMoveBack(xUIEvent_t *pxEvent) {
     else
         snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "G1 %c-%d\n", axis, moveStep);
 
+    xTimerReset(xIdleTimer, 10);
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
     uiToggleRedrawParentState(uiMoveMenu);
 }
@@ -494,6 +498,7 @@ void uiMoveForward(xUIEvent_t *pxEvent) {
     else
         snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "G1 %c%d\n", axis, moveStep);
 
+    xTimerReset(xIdleTimer, 10);
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
     uiToggleRedrawParentState(uiMoveMenu);
 }
@@ -546,7 +551,7 @@ static void uiTemperatureMenu (xUIEvent_t *pxEvent) {
         { 205, 170, 315, 230, LCD_DANUBE, "Преднагрев ABS" }
     };
 
-    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+    if (pxEvent->ucEventID == INIT_EVENT) {
         xTimerReset(xIdleTimer, 10);
     }
 
@@ -592,10 +597,6 @@ static void uiTempSliderMenu (
 
     uint16_t temp = 0;
 
-    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
-        xTimerReset(xIdleTimer, 10);
-    }
-
     switch (pxEvent->ucEventID) {
     case REDRAW_EVENT:
         if (0xffu == uiSelExtruder)
@@ -611,6 +612,7 @@ static void uiTempSliderMenu (
         break;
 
     case INIT_EVENT:
+        xTimerReset(xIdleTimer, 10);
         if (0xffu == uiSelExtruder)
             newTargetTemp = bedTargetTemp;
         else
@@ -639,6 +641,7 @@ static void uiE1TempSliderApply(xUIEvent_t *pxEvent) {
     snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M104 T0 S%3.0f\n", newTargetTemp);
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
+    xTimerReset(xIdleTimer, 10);
     uiNextState(uiTemperatureMenu);
 }
 
@@ -648,6 +651,7 @@ static void uiE1TempSliderCancel(xUIEvent_t *pxEvent) {
     snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M104 T0 S0\n");
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
+    xTimerReset(xIdleTimer, 10);
     uiNextState(uiTemperatureMenu);
 }
 
@@ -668,6 +672,7 @@ static void uiE2TempSliderApply(xUIEvent_t *pxEvent) {
     snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M104 T1 S%3.0f\n", newTargetTemp);
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
+    xTimerReset(xIdleTimer, 10);
     uiNextState(uiTemperatureMenu);
 }
 
@@ -677,6 +682,7 @@ static void uiE2TempSliderCancel(xUIEvent_t *pxEvent) {
     snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M104 T1 S0\n");
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
+    xTimerReset(xIdleTimer, 10);
     uiNextState(uiTemperatureMenu);
 }
 
@@ -697,6 +703,7 @@ static void uiBedTempSliderApply(xUIEvent_t *pxEvent) {
     snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M140 S%3.0f\n", newTargetTemp);
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
+    xTimerReset(xIdleTimer, 10);
     uiNextState(uiTemperatureMenu);
 }
 
@@ -706,6 +713,7 @@ static void uiBedTempSliderCancel(xUIEvent_t *pxEvent) {
     snprintf((char *)event.ucCmd, sizeof(event.ucCmd), "M140 S0\n");
     xQueueSendToBack(xPCommEventQueue, &event, 1000);
 
+    xTimerReset(xIdleTimer, 10);
     uiNextState(uiTemperatureMenu);
 }
 
@@ -723,10 +731,6 @@ static void uiFilChangeMenu(xUIEvent_t *pxEvent) {
 
     uint16_t temp = 0;
 
-    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
-        xTimerStop(xIdleTimer, 10);
-    }
-
     switch (pxEvent->ucEventID) {
     case REDRAW_EVENT:
         temp = MAX_EXTRUDER_TEMP * touchX / 320;
@@ -740,6 +744,7 @@ static void uiFilChangeMenu(xUIEvent_t *pxEvent) {
 
     case INIT_EVENT:
         /* TODO: check material */
+        xTimerReset(xIdleTimer, 10);
         newTargetTemp = 220;
 
     default:
@@ -773,7 +778,7 @@ static void uiFilPreheatMenu(xUIEvent_t *pxEvent) {
         { 170, 170, 300, 230, LCD_DANUBE, "Отменить", .pOnTouchUp = uiSetupMenu },
     };
 
-    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+    if (pxEvent->ucEventID == INIT_EVENT) {
         xTimerStop(xIdleTimer, 10);
     }
 
@@ -795,7 +800,7 @@ static void uiFilReplaceMenu(xUIEvent_t *pxEvent) {
         { 170, 170, 300, 230, LCD_DANUBE, "Отменить", .pOnTouchUp = uiSetupMenu },
     };
 
-    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+    if (pxEvent->ucEventID == INIT_EVENT) {
         xTimerStop(xIdleTimer, 10);
     }
 
@@ -812,7 +817,7 @@ static void uiFilFeedMenu(xUIEvent_t *pxEvent) {
         { 100, 170, 230, 230, LCD_DANUBE, "Завершить", .pOnTouchUp = uiSetupMenu },
     };
 
-    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
+    if (pxEvent->ucEventID == INIT_EVENT) {
         xTimerStop(xIdleTimer, 10);
     }
 
@@ -842,12 +847,14 @@ static void uiFileSelectMenu(xUIEvent_t *pxEvent) {
     char cwd[10];
     snprintf(cwd, sizeof(cwd), "%c:/models", massStorage ? '2' : '1');
 
-    if (pxEvent->ucEventID == INIT_EVENT)
+    if (pxEvent->ucEventID == INIT_EVENT) {
+
+        xTimerReset(xIdleTimer, 10);
         fileOffset = 0;
+    }
 
     if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
 
-        xTimerReset(xIdleTimer, 10);
         res = f_opendir(&dir, cwd); /* Open the directory */
         if (res == FR_OK) {
 
@@ -889,6 +896,7 @@ static void uiFileSelectOffsetPlus(xUIEvent_t *pxEvent) {
 
     if (fileOffset + 4 < fileListEnd) fileOffset++;
 
+    xTimerReset(xIdleTimer, 10);
     uiToggleRedrawParentState(uiFileSelectMenu);
 }
 
@@ -896,6 +904,7 @@ static void uiFileSelectOffsetMinus(xUIEvent_t *pxEvent) {
 
     if (fileOffset) fileOffset--;
 
+    xTimerReset(xIdleTimer, 10);
     uiToggleRedrawParentState(uiFileSelectMenu);
 }
 
@@ -907,6 +916,7 @@ static void uiFileSelectUSB(xUIEvent_t *pxEvent) {
     if (!usbFileSystem.fs_type)
         f_mount(&usbFileSystem, USBH_Path, 1);
 
+    xTimerReset(xIdleTimer, 10);
     uiToggleRedrawParentState(uiFileSelectMenu);
 }
 
@@ -918,6 +928,7 @@ static void uiFileSelectSD(xUIEvent_t *pxEvent) {
     if (!sdFileSystem.fs_type)
         f_mount(&sdFileSystem, SPISD_Path, 1);
 
+    xTimerReset(xIdleTimer, 10);
     uiToggleRedrawParentState(uiFileSelectMenu);
 }
 
@@ -934,16 +945,13 @@ static void uiFilePrintMenu(xUIEvent_t *pxEvent) {
         { 215, 170, 315, 230, LCD_RED, "Отменить", .pOnTouchUp = uiMainMenu }
     };
 
-    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
-        xTimerStop(xIdleTimer, 10);
-    }
-
     switch (pxEvent->ucEventID) {
     case REDRAW_EVENT:
         uiDrawMenu(menu, 3);
         break;
 
     case INIT_EVENT:
+        while (xTimerStop(xIdleTimer, 10) == pdFAIL) ;
         isPrinting = 1;
 
     default:
@@ -974,10 +982,6 @@ static void uiPrintFilFeedMenu(xUIEvent_t *pxEvent) {
         { 0, 132, 320, 148, LCD_BLACK, "к печати." },
         { 100, 170, 230, 230, LCD_DANUBE, "Продолжить", .pOnTouchUp = uiFilePrintMenu  },
     };
-
-    if (pxEvent->ucEventID == INIT_EVENT || pxEvent->ucEventID == REDRAW_EVENT) {
-        xTimerStop(xIdleTimer, 10);
-    }
 
     uiMenuHandleEventDefault(menu, sizeof(menu)/sizeof(xButton_t), pxEvent);
 }
