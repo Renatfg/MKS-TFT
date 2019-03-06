@@ -16,21 +16,26 @@
   *
   *        http://www.st.com/software_license_agreement_liberty_v2
   *
-  * Unless required by applicable law or agreed to in writing, software 
-  * distributed under the License is distributed on an "AS IS" BASIS, 
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   * See the License for the specific language governing permissions and
   * limitations under the License.
   *
   ******************************************************************************
-  */ 
+  */
 
 /* Includes ------------------------------------------------------------------*/
 #include <string.h>
 
 #include "ff_gen_drv.h"
 #include "spisd_diskio.h"
-#include "mxconstants.h"
+
+#ifdef BOOTLOADER
+ #include "boot_conf.h"
+#else
+ #include "mks_conf.h"
+#endif
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -51,7 +56,7 @@ DRESULT SPISD_read (BYTE, BYTE*, DWORD, UINT);
 #if _USE_IOCTL == 1
   DRESULT SPISD_ioctl (BYTE, BYTE, void*);
 #endif  /* _USE_IOCTL == 1 */
-  
+
 Diskio_drvTypeDef SPISD_Driver =
 {
   SPISD_initialize,
@@ -60,7 +65,7 @@ Diskio_drvTypeDef SPISD_Driver =
 #if  _USE_WRITE == 1
   SPISD_write,
 #endif /* _USE_WRITE == 1 */
-  
+
 #if  _USE_IOCTL == 1
   SPISD_ioctl,
 #endif /* _USE_IOCTL == 1 */
@@ -172,11 +177,13 @@ static void power_on(void) {
 }
 
 static void power_off(void) {
+
 	PowerFlag = 0;
+	Stat = STA_NOINIT;
 }
 
-static int chk_power(void) /* Socket power state: 0=off, 1=on */
-{
+static int chk_power(void)  {/* Socket power state: 0=off, 1=on */
+
 	return PowerFlag;
 }
 
@@ -294,7 +301,7 @@ DWORD arg /* Argument */
  ---------------------------------------------------------------------------*/
 /**
   * @brief  Initializes a Drive
-  * @param  lun : not used 
+  * @param  lun : not used
   * @retval DSTATUS: Operation status
   */
 DSTATUS SPISD_initialize(BYTE drv /* Physical drive nmuber (0) */
@@ -397,8 +404,11 @@ DRESULT SPISD_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
 {
 	if (pdrv || !count)
 		return RES_PARERR;
-	if (Stat & STA_NOINIT)
+	if (Stat & STA_NOINIT) {
+
+        if (SPISD_initialize(pdrv))
 		return RES_NOTRDY;
+	}
 
 	if (!(CardType & 4))
 		sector *= 512; /* Convert to byte address if needed */
@@ -445,8 +455,12 @@ DRESULT SPISD_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
 {
 	if (pdrv || !count)
 		return RES_PARERR;
-	if (Stat & STA_NOINIT)
+	if (Stat & STA_NOINIT) {
+
+        if (SPISD_initialize(pdrv))
 		return RES_NOTRDY;
+    }
+
 	if (Stat & STA_PROTECT)
 		return RES_WRPRT;
 
@@ -527,8 +541,11 @@ DRESULT SPISD_ioctl(BYTE drv, BYTE ctrl, void *buff)
 			res = RES_PARERR;
 		}
 	} else {
-		if (Stat & STA_NOINIT)
+		if (Stat & STA_NOINIT) {
+
+            if (SPISD_initialize(drv))
 			return RES_NOTRDY;
+		}
 
 		deviceSelect(SPI_SDCARD); /* CS = L */
 
@@ -595,6 +612,6 @@ DRESULT SPISD_ioctl(BYTE drv, BYTE ctrl, void *buff)
 	return res;
 }
 #endif /* _USE_IOCTL == 1 */
-  
+
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
 

@@ -41,17 +41,16 @@
 
 #include "ff.h"
 #include "ff_gen_drv.h"
-#include "spisd_diskio.h" /* defines SPISD_Driver as external */
-#include "spiflash_w25q16dv.h"
-#include "usbh_diskio.h"
+#if defined(STM32F107xC) && defined(MKS_TFT)
+ #include "spisd_diskio.h" /* defines SPISD_Driver as external */
+ #ifndef BOOTLOADER
+  #include "spiflash_w25q16dv.h"
+  #include "usbh_diskio.h"
 
-/* USER CODE BEGIN Includes */
-
-/* USER CODE END Includes */
-
-extern char SPISD_Path[4];	/* SPI SD card logical drive path */
 extern char SPIFL_Path[4];	/* SPI Flash logical drive path */
 extern char USBH_Path[4];	/* USB stick logical drive path */
+ #endif /* BOOTLOADER */
+extern char SPISD_Path[4];	/* SPI SD card logical drive path */
 
 extern SPI_HandleTypeDef hspi1;
 
@@ -60,16 +59,18 @@ typedef enum {
 	SPI_FLASH
 } dselect_t;
 
-void MX_FATFS_Init(void);
-
-/* USER CODE BEGIN Prototypes */
-
 void deviceSelect(dselect_t device);
 void deviceDeselect();
 
+#elif defined(STM32F103xE) && defined(CZMINI)
+ #include "sd_diskio.h" /* defines SD_Driver as external */
+
+extern char SD_Path[4]; /* SD logical drive path */
+#endif
+
+void MX_FATFS_Init(void);
 FRESULT transferFile(const TCHAR *source, const TCHAR *dest, uint8_t overwrite);
 
-/* USER CODE END Prototypes */
 #ifdef __cplusplus
 }
 #endif

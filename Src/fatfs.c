@@ -32,12 +32,17 @@
   */
 
 #include "fatfs.h"
-#include "mxconstants.h"
+#include "mks_conf.h"
 
-char SPISD_Path[4];  /* USER logical drive path */
-char SPIFL_Path[4];	/* SPI Flash logical drive path */
-char USBH_Path[4];	/* USB stick logical drive path */
+#if defined(STM32F107xC) && defined(MKS_TFT)
+char SPISD_Path[4];     /* USER logical drive path */
+char SPIFL_Path[4];     /* SPI Flash logical drive path */
+char USBH_Path[4];      /* USB stick logical drive path */
+#elif defined(STM32F103xE) && defined(CZMINI)
+char SD_Path[4];        /* SD logical drive path */
+#endif
 
+#if defined(STM32F107xC) && defined(MKS_TFT)
 void deviceSelect(dselect_t device)  {
 
 	if (device == SPI_SDCARD) {
@@ -53,6 +58,7 @@ void deviceDeselect() {
 	HAL_GPIO_WritePin(SDCARD_nCS_GPIO_Port, SDCARD_nCS_Pin, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(FLASH_nCS_GPIO_Port, FLASH_nCS_Pin, GPIO_PIN_SET);
 }
+#endif
 
 FRESULT transferFile(const TCHAR *source, const TCHAR *dest, uint8_t overwrite) {
 
@@ -62,9 +68,9 @@ FRESULT transferFile(const TCHAR *source, const TCHAR *dest, uint8_t overwrite) 
 
 	FRESULT res = FR_OK;
 
-	if (NULL != (pSourceFile = pvPortMalloc(sizeof(FIL))) &&
-			NULL != (pDestFile = pvPortMalloc(sizeof(FIL))) &&
-			NULL != (pBuffer = pvPortMalloc(_MIN_SS))) {
+	if (NULL != (pSourceFile = (FIL *)pvPortMalloc(sizeof(FIL))) &&
+			NULL != (pDestFile = (FIL *)pvPortMalloc(sizeof(FIL))) &&
+			NULL != (pBuffer = (BYTE *)pvPortMalloc(_MIN_SS))) {
 
 		if (FR_OK == (res = f_open(pSourceFile, source, FA_READ))) {
 			if (FR_OK == (res = f_open(pDestFile, dest,	FA_WRITE
@@ -98,34 +104,34 @@ FRESULT transferFile(const TCHAR *source, const TCHAR *dest, uint8_t overwrite) 
 
 /* USER CODE BEGIN Variables */
 
-/* USER CODE END Variables */    
+/* USER CODE END Variables */
 
-void MX_FATFS_Init(void) 
+void MX_FATFS_Init(void)
 {
-  /*## FatFS: Link the USER driver ###########################*/
-  FATFS_LinkDriver(&SPIFLASH_Driver, SPIFL_Path);	// 0:/
-  FATFS_LinkDriver(&SPISD_Driver, SPISD_Path);		// 1:/
-  FATFS_LinkDriver(&USBH_Driver, USBH_Path);		// 2:/
-
-  /* USER CODE BEGIN Init */
-  /* additional user code for init */     
-  /* USER CODE END Init */
+#if defined(STM32F107xC) && defined(MKS_TFT)
+    /*## FatFS: Link the USER driver ###########################*/
+    FATFS_LinkDriver(&SPIFLASH_Driver, SPIFL_Path);	// 0:/
+    FATFS_LinkDriver(&SPISD_Driver, SPISD_Path);    // 1:/
+    FATFS_LinkDriver(&USBH_Driver, USBH_Path);		// 2:/
+#elif defined(STM32F103xE) && defined(CZMINI)
+    FATFS_LinkDriver(&SD_Driver, SD_Path);
+#endif
 }
 
 /**
-  * @brief  Gets Time from RTC 
+  * @brief  Gets Time from RTC
   * @param  None
   * @retval Time in DWORD
   */
 DWORD get_fattime(void)
 {
-  /* USER CODE BEGIN get_fattime */
-  return 0;
-  /* USER CODE END get_fattime */  
+    /* USER CODE BEGIN get_fattime */
+    return 0;
+    /* USER CODE END get_fattime */
 }
 
 /* USER CODE BEGIN Application */
-     
+
 /* USER CODE END Application */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
